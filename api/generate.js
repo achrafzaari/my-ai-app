@@ -1,24 +1,30 @@
 export default async function handler(req, res) {
-  // CORS headers
+  // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+  if (!key) {
+    return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+  }
 
   const { prompt, imgB64, imgType } = req.body;
-  if (!prompt) return res.status(400).json({ error: "No prompt provided" });
+  if (!prompt) {
+    return res.status(400).json({ error: "No prompt provided" });
+  }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  // ✅ هذا هو الصحيح (مهم)
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${key}`;
 
-  // بناء الـ parts — نص فقط أو نص + صورة
   const parts = [];
 
-  // إذا فيه صورة نضيفها أولاً
+  // صورة (اختياري)
   if (imgB64 && imgType) {
     parts.push({
       inlineData: {
@@ -28,27 +34,43 @@ export default async function handler(req, res) {
     });
   }
 
-  // نضيف الـ prompt
+  // النص
   parts.push({ text: prompt });
 
   try {
-    const r = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
-        contents: [{ role: "user", parts }]
+        contents: [
+          {
+            role: "user",
+            parts: parts
+          }
+        ]
       })
     });
 
-    const data = await r.json();
+    const data = await response.json();
 
-    if (data.error) return res.status(500).json({ error: data.error.message });
+    // Debug إذا كان خطأ
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
 
-    // dashboard يتوقع { html } — نرجع html و result معاً
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    res.status(200).json({ html: text, result: text });
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(200).json({
+      html: text,
+      result: text
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: error.message
+    });
   }
 }
