@@ -1,5 +1,6 @@
 {
+  "buildCommand": null,
   "outputDirectory": "public",
-  "cleanUrls": true,
-  "trailingSlash": false
+  "installCommand": "echo skip",
+  "framework": null
 }
