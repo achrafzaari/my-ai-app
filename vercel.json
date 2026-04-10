@@ -1,6 +1,10 @@
 {
-  "buildCommand": null,
   "outputDirectory": "public",
-  "installCommand": "echo skip",
-  "framework": null
+  "cleanUrls": true,
+  "ignoreCommand": "echo ignore",
+  "functions": {
+    "api/generate.js": {
+      "includeFiles": "api/**"
+    }
+  }
 }
