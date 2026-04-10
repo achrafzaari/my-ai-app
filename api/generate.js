@@ -1,5 +1,4 @@
-export default async function handler(req, res) {
-  // CORS headers
+module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -15,40 +14,26 @@ export default async function handler(req, res) {
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
-  // بناء الـ parts — نص فقط أو نص + صورة
   const parts = [];
-
-  // إذا فيه صورة نضيفها أولاً
   if (imgB64 && imgType) {
-    parts.push({
-      inlineData: {
-        mimeType: imgType,
-        data: imgB64
-      }
-    });
+    parts.push({ inlineData: { mimeType: imgType, data: imgB64 } });
   }
-
-  // نضيف الـ prompt
   parts.push({ text: prompt });
 
   try {
     const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }]
-      })
+      body: JSON.stringify({ contents: [{ role: "user", parts }] })
     });
 
     const data = await r.json();
-
     if (data.error) return res.status(500).json({ error: data.error.message });
 
-    // dashboard يتوقع { html } — نرجع html و result معاً
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     res.status(200).json({ html: text, result: text });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}
+};
