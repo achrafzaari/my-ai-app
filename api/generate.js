@@ -7,16 +7,12 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const key = process.env.GEMINI_API_KEY;
-  console.log("KEY exists:", !!key);
-  
   if (!key) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
 
   const { prompt, imgB64, imgType } = req.body;
-  console.log("prompt:", prompt?.slice(0,50));
-  
   if (!prompt) return res.status(400).json({ error: "No prompt provided" });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
 
   const parts = [];
   if (imgB64 && imgType) {
@@ -31,17 +27,13 @@ export default async function handler(req, res) {
       body: JSON.stringify({ contents: [{ role: "user", parts }] })
     });
 
-    console.log("Gemini status:", r.status);
     const data = await r.json();
-    console.log("Gemini response:", JSON.stringify(data).slice(0,200));
-    
     if (data.error) return res.status(500).json({ error: data.error.message });
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     res.status(200).json({ html: text, result: text });
 
   } catch (err) {
-    console.error("CATCH ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 }
