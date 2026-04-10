@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ForYouPage — صفحات هبوط بالذكاء الاصطناعي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&amp;family=Tajawal:wght@400;500;700&amp;display=swap" rel="stylesheet">
+  <style>
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--card:#1a1a28;--border:#2a2a40;
+  --accent:#00e5a0;--accent2:#7c6af7;--text:#f0f0ff;--muted:#7a7a9a;
+  --error:#ff4d6d;--success:#00e5a0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+.bg-grid{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(0,229,160,0.03)1px,transparent 1px),linear-gradient(90deg,rgba(0,229,160,0.03)1px,transparent 1px);background-size:50px 50px;pointer-events:none;}
+.bg-glow{position:fixed;top:-200px;right:-200px;width:600px;height:600px;background:radial-gradient(circle,rgba(124,106,247,0.15)0%,transparent 70%);pointer-events:none;z-index:0;}
+.bg-glow2{position:fixed;bottom:-200px;left:-100px;width:500px;height:500px;background:radial-gradient(circle,rgba(0,229,160,0.1)0%,transparent 70%);pointer-events:none;z-index:0;}
+
+nav{z-index:10;display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-bottom:1px solid var(--border);backdrop-filter:blur(20px);background:rgba(10,10,15,0.8);position:sticky;top:0;}
+.logo{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{-webkit-text-fill-color:var(--text);}
+.nav-right{display:flex;align-items:center;gap:12px;}
+.nav-badge{font-size:0.7rem;font-family:'Tajawal',sans-serif;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);color:var(--accent);padding:4px 12px;border-radius:20px;}
+
+/* ── Language Switcher ── */
+.lang-switcher{position:relative;}
+.lang-btn{display:flex;align-items:center;gap:7px;padding:6px 13px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:20px;color:var(--muted);font-family:'Cairo',sans-serif;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;}
+.lang-btn:hover{border-color:rgba(0,229,160,0.4);color:var(--accent);}
+.lang-btn svg{transition:transform 0.25s;}
+.lang-btn.open svg{transform:rotate(180deg);}
+.lang-flag{font-size:1rem;line-height:1;}
+.lang-dropdown{position:absolute;top:calc(100% + 8px);left:0;min-width:150px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:6px;box-shadow:0 16px 40px rgba(0,0,0,0.4);display:none;z-index:200;animation:fadeIn 0.18s ease;}
+.lang-dropdown.open{display:block;}
+.lang-option{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:0.82rem;font-weight:600;transition:background 0.15s;color:var(--muted);}
+.lang-option:hover{background:rgba(255,255,255,0.05);color:var(--text);}
+.lang-option.active{color:var(--accent);background:rgba(0,229,160,0.07);}
+.lang-option .flag{font-size:1.1rem;}
+.lang-option .lname{font-family:'Tajawal',sans-serif;}
+.lang-option .check{margin-right:auto;opacity:0;font-size:0.75rem;color:var(--accent);}
+.lang-option.active .check{opacity:1;}
+
+.hero{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 20px 50px;}
+.hero-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(124,106,247,0.1);border:1px solid rgba(124,106,247,0.3);color:#a89af7;padding:6px 18px;border-radius:20px;font-size:0.85rem;margin-bottom:24px;animation:fadeDown 0.6s ease both;}
+.hero-tag::before{content:'✦';font-size:0.7rem;}
+h1{font-size:clamp(1.8rem,5vw,3.2rem);font-weight:900;line-height:1.2;margin-bottom:16px;animation:fadeDown 0.7s ease 0.1s both;}
+h1 .highlight{background:linear-gradient(135deg,var(--accent),#00b4d8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hero-sub{font-family:'Tajawal',sans-serif;font-size:1rem;color:var(--muted);max-width:500px;line-height:1.8;margin-bottom:36px;animation:fadeDown 0.7s ease 0.2s both;}
+.stats{display:flex;gap:36px;margin-bottom:44px;animation:fadeDown 0.7s ease 0.25s both;}
+.stat{text-align:center;}
+.stat-num{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.stat-label{font-size:0.72rem;color:var(--muted);margin-top:2px;font-family:'Tajawal',sans-serif;}
+
+/* Card */
+.auth-card{position:relative;z-index:1;width:100%;max-width:460px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:32px 36px 36px;box-shadow:0 40px 80px rgba(0,0,0,0.4);animation:fadeUp 0.8s ease 0.3s both;}
+.auth-card::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:60%;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
+
+/* Tabs */
+.tabs{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:4px;margin-bottom:28px;position:relative;}
+.tab-btn{flex:1;padding:10px;background:transparent;border:none;border-radius:10px;color:var(--muted);font-family:'Cairo',sans-serif;font-size:0.92rem;font-weight:600;cursor:pointer;transition:color 0.25s;position:relative;z-index:1;}
+.tab-btn.active{color:var(--text);}
+.tab-slider{position:absolute;top:4px;bottom:4px;right:4px;width:calc(50% - 4px);background:var(--card);border:1px solid var(--border);border-radius:10px;transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+.tab-slider.moved{transform:translateX(calc(-100%));}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;animation:fadeIn 0.25s ease;}
+
+/* Google btn */
+.btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:13px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Cairo',sans-serif;font-size:0.92rem;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.btn-google:hover{border-color:rgba(0,229,160,0.4);background:rgba(0,229,160,0.05);transform:translateY(-1px);}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:0.78rem;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* Inputs */
+.input-group{margin-bottom:14px;}
+.input-label{display:block;font-size:0.8rem;font-weight:600;color:var(--muted);margin-bottom:7px;}
+.input-wrap{position:relative;}
+.input-wrap input{width:100%;padding:12px 16px 12px 44px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Cairo',sans-serif;font-size:0.92rem;outline:none;transition:all 0.2s;direction:ltr;text-align:left;}
+.input-wrap input[type="text"]{direction:rtl;text-align:right;}
+.input-wrap input::placeholder{color:var(--muted);}
+.input-wrap input:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(124,106,247,0.15);}
+.input-wrap input.error{border-color:var(--error);}
+.input-wrap input.valid{border-color:var(--accent);}
+.input-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+.input-status{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:0.9rem;opacity:0;transition:opacity 0.2s;}
+.pwd-toggle{position:absolute;left:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;padding:0;transition:color 0.2s;}
+.pwd-toggle:hover{color:var(--accent2);}
+.field-error{font-size:0.76rem;color:var(--error);margin-top:5px;display:none;font-family:'Tajawal',sans-serif;}
+.field-error.show{display:block;}
+.email-hints{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;}
+.hint-badge{font-size:0.68rem;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);font-family:'Tajawal',sans-serif;}
+.forgot{text-align:left;margin-top:-4px;margin-bottom:14px;}
+.forgot a{font-size:0.78rem;color:var(--accent2);text-decoration:none;font-family:'Tajawal',sans-serif;}
+
+/* Submit */
+.btn-submit{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent),#00b4d8);border:none;border-radius:12px;color:#0a0a0f;font-family:'Cairo',sans-serif;font-size:0.97rem;font-weight:700;cursor:pointer;transition:all 0.2s;margin-top:6px;}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,229,160,0.3);}
+.btn-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.privacy-note{text-align:center;font-size:0.72rem;color:var(--muted);margin-top:16px;font-family:'Tajawal',sans-serif;line-height:1.6;}
+.privacy-note a{color:var(--accent2);text-decoration:none;}
+
+/* Success */
+.success-state{display:none;text-align:center;padding:16px 0;}
+.success-icon{width:60px;height:60px;margin:0 auto 14px;background:rgba(0,229,160,0.1);border:2px solid var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+.success-title{font-size:1.1rem;font-weight:700;margin-bottom:8px;}
+.success-sub{font-size:0.82rem;color:var(--muted);font-family:'Tajawal',sans-serif;}
+.success-email{display:inline-block;margin-top:10px;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);color:var(--accent);padding:4px 14px;border-radius:20px;font-size:0.82rem;direction:ltr;}
+.btn-dashboard{display:inline-block;margin-top:16px;padding:12px 28px;background:linear-gradient(135deg,var(--accent),#00b4d8);color:#0a0a0f;border:none;border-radius:12px;font-family:'Cairo',sans-serif;font-weight:700;font-size:0.92rem;cursor:pointer;text-decoration:none;transition:all 0.2s;}
+.btn-dashboard:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,229,160,0.3);}
+
+/* Error banner */
+.auth-error{background:rgba(255,77,109,0.1);border:1px solid rgba(255,77,109,0.3);color:#ff4d6d;padding:10px 14px;border-radius:10px;font-size:0.8rem;margin-bottom:14px;font-family:'Tajawal',sans-serif;display:none;}
+.auth-error.show{display:block;}
+
+/* Features */
+.features{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;margin:50px auto 40px;padding:0 20px;}
+.feature-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;animation:fadeUp 0.6s ease both;}
+.feature-card:nth-child(2){animation-delay:0.1s;}
+.feature-card:nth-child(3){animation-delay:0.2s;}
+.feature-icon{font-size:1.6rem;margin-bottom:10px;}
+.feature-title{font-size:0.92rem;font-weight:700;margin-bottom:6px;}
+.feature-text{font-size:0.78rem;color:var(--muted);font-family:'Tajawal',sans-serif;line-height:1.6;}
+
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@keyframes popIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-left:6px;}
+@media(max-width:640px){
+  nav{padding:16px 20px;}
+  .hero{padding:40px 20px 30px;}
+  .stats{gap:20px;}
+  .features{grid-template-columns:1fr;}
+  .auth-card{padding:24px 18px 28px;}
+  .nav-badge{display:none;}
+  .lang-dropdown{left:auto;right:0;}
+}
+</style>
+ </head>
+ <body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="bg-glow2"></div>
+  <nav>
+   <div class="logo">
+    ForYou<span>Page</span>
+   </div>
+   <div class="nav-right">
+    <div class="nav-badge" id="nav-badge">✦ مدعوم بالذكاء الاصطناعي</div>
+    <!-- ── زر تغيير اللغة ── -->
+    <div class="lang-switcher" id="langSwitcher">
+     <button class="lang-btn" id="langBtn" onclick="toggleLangDropdown()"><span class="lang-flag" id="currentFlag">🇸🇦</span> <span id="currentLangLabel">AR</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+       <path d="m6 9 6 6 6-6" />
+      </svg></button>
+     <div class="lang-dropdown" id="langDropdown">
+      <div class="lang-option active" id="opt-ar" onclick="setLang('ar')">
+       <span class="flag">🇸🇦</span><span class="lname">العربية</span><span class="check">✓</span>
+      </div>
+      <div class="lang-option" id="opt-en" onclick="setLang('en')">
+       <span class="flag">🇺🇸</span><span class="lname">English</span><span class="check">✓</span>
+      </div>
+      <div class="lang-option" id="opt-fr" onclick="setLang('fr')">
+       <span class="flag">🇫🇷</span><span class="lname">Français</span><span class="check">✓</span>
+      </div>
+     </div>
+    </div>
+   </div>
+  </nav>
+  <section class="hero">
+   <div class="hero-tag" id="hero-tag">منصة توليد صفحات الهبوط</div>
+   <h1 id="hero-h1">أنشئ صفحة هبوطك
+    <br>
+    <span class="highlight" id="hero-highlight">بالذكاء الاصطناعي</span>
+    <br>
+    <span id="hero-h1-end">في ثوانٍ</span></h1>
+   <p class="hero-sub" id="hero-sub">اكتب وصف مشروعك واحصل على صفحة هبوط احترافية جاهزة فوراً — بدون كود، بدون تصميم، بدون تعب.</p>
+   <div class="stats">
+    <div class="stat">
+     <div class="stat-num">500+</div>
+     <div class="stat-label" id="stat1">صفحة مُنشأة</div>
+    </div>
+    <div class="stat">
+     <div class="stat-num">30s</div>
+     <div class="stat-label" id="stat2">متوسط التوليد</div>
+    </div>
+    <div class="stat">
+     <div class="stat-num" id="stat3-num">مجاني</div>
+     <div class="stat-label" id="stat3">للبدء الآن</div>
+    </div>
+   </div>
+   <div class="auth-card">
+    <!-- Success -->
+    <div class="success-state" id="successState">
+     <div class="success-icon" id="successIcon">🎉</div>
+     <div class="success-title" id="successTitle">مرحباً بك في ForYouPage!</div>
+     <div class="success-sub" id="successSub">تم تسجيلك بنجاح.</div>
+     <div class="success-email" id="successEmail"></div>
+     <br>
+     <a class="btn-dashboard" href="dashboard.html" id="btn-dashboard">انتقل للوحة التحكم ←</a>
+    </div>
+    <!-- Forms -->
+    <div id="authForms">
+     <div class="tabs">
+      <div class="tab-slider" id="tabSlider"></div>
+      <button class="tab-btn active" id="tab-signup" onclick="switchTab('signup')" data-i="tab-signup-txt">إنشاء حساب</button>
+      <button class="tab-btn" id="tab-login" onclick="switchTab('login')" data-i="tab-login-txt">تسجيل الدخول</button>
+     </div>
+     <!-- SIGNUP -->
+     <div class="tab-panel active" id="panel-signup">
+      <button class="btn-google" id="google-signup-btn" onclick="handleGoogle()">
+       <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+       </svg>
+       <span id="google-signup-txt">إنشاء حساب بـ Google</span>
+      </button>
+      <div class="divider" id="divider-su">أو بالإيميل</div>
+      <div class="auth-error" id="su-error"></div>
+      <div class="input-group">
+       <label class="input-label" id="lbl-name">اسمك</label>
+       <div class="input-wrap">
+        <input type="text" id="su-name" placeholder="محمد أحمد" oninput="liveValidateName(this)">
+        <svg class="input-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+        </svg>
+       </div>
+       <div class="field-error" id="su-name-err">⚠ يرجى إدخال اسمك</div>
+      </div>
+      <div class="input-group">
+       <label class="input-label" id="lbl-email-su">البريد الإلكتروني</label>
+       <div class="input-wrap">
+        <input type="email" id="su-email" placeholder="example@gmail.com" oninput="liveEmail(this,'su-email-err','su-email-st')" onblur="blurEmail(this,'su-email-err')">
+        <svg class="input-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,12 2,6" />
+        </svg>
+        <span class="input-status" id="su-email-st"></span>
+       </div>
+       <div class="email-hints">
+        <span class="hint-badge">@gmail.com</span><span class="hint-badge">@yahoo.com</span><span class="hint-badge">@hotmail.com</span><span class="hint-badge">@outlook.com</span>
+       </div>
+       <div class="field-error" id="su-email-err">⚠ إيميل غير مقبول — Gmail أو Yahoo أو Hotmail</div>
+      </div>
+      <div class="input-group">
+       <label class="input-label" id="lbl-pwd-su">كلمة المرور</label>
+       <div class="input-wrap">
+        <input type="password" id="su-pwd" placeholder="••••••••" oninput="liveValidatePwd(this,'su-pwd-err')">
+        <button class="pwd-toggle" type="button" onclick="togglePwd('su-pwd',this)">
+         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+         </svg>
+        </button>
+       </div>
+       <div class="field-error" id="su-pwd-err">⚠ 6 أحرف على الأقل</div>
+      </div>
+      <button class="btn-submit" id="su-btn" onclick="handleSignup()"><span id="su-btn-txt">إنشاء حساب ←</span></button>
+      <div class="privacy-note" id="privacy-note">
+       بالتسجيل توافق على <a href="#">شروط الاستخدام</a>
+      </div>
+     </div>
+     <!-- LOGIN -->
+     <div class="tab-panel" id="panel-login">
+      <button class="btn-google" id="google-login-btn" onclick="handleGoogle()">
+       <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+       </svg>
+       <span id="google-login-txt">الدخول بـ Google</span>
+      </button>
+      <div class="divider" id="divider-li">أو بالإيميل وكلمة المرور</div>
+      <div class="auth-error" id="li-error"></div>
+      <div class="input-group">
+       <label class="input-label" id="lbl-email-li">البريد الإلكتروني</label>
+       <div class="input-wrap">
+        <input type="email" id="li-email" placeholder="example@gmail.com" oninput="liveEmail(this,'li-email-err','li-email-st')" onblur="blurEmail(this,'li-email-err')">
+        <svg class="input-icon" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,12 2,6" />
+        </svg>
+        <span class="input-status" id="li-email-st"></span>
+       </div>
+       <div class="field-error" id="li-email-err">⚠ إيميل غير مقبول</div>
+      </div>
+      <div class="input-group">
+       <label class="input-label" id="lbl-pwd-li">كلمة المرور</label>
+       <div class="input-wrap">
+        <input type="password" id="li-pwd" placeholder="••••••••">
+        <button class="pwd-toggle" type="button" onclick="togglePwd('li-pwd',this)">
+         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+         </svg>
+        </button>
+       </div>
+      </div>
+      <div class="forgot">
+       <a href="#" id="forgot-link" onclick="handleForgotPassword();return false;">نسيت كلمة المرور؟</a>
+      </div>
+      <button class="btn-submit" id="li-btn" onclick="handleLogin()"><span id="li-btn-txt">دخول ←</span></button>
+      <div class="privacy-note" id="login-note">
+       ليس لديك حساب؟ <a href="#" onclick="switchTab('signup');return false;" id="go-signup">سجّل مجاناً</a>
+      </div>
+     </div>
+    </div>
+   </div>
+  </section>
+  <section class="features">
+   <div class="feature-card">
+    <div class="feature-icon">⚡</div>
+    <div class="feature-title" id="feat1-title">توليد فوري</div>
+    <div class="feature-text" id="feat1-text">صف مشروعك واحصل على صفحة هبوط كاملة خلال 30 ثانية.</div>
+   </div>
+   <div class="feature-card">
+    <div class="feature-icon">🎨</div>
+    <div class="feature-title" id="feat2-title">تصميم احترافي</div>
+    <div class="feature-text" id="feat2-text">كل صفحة مصممة بأسلوب فريد مناسب لمجالك.</div>
+   </div>
+   <div class="feature-card">
+    <div class="feature-icon">📤</div>
+    <div class="feature-title" id="feat3-title">تصدير سهل</div>
+    <div class="feature-text" id="feat3-text">حمّل الكود أو انشر الصفحة مباشرة في ثانية.</div>
+   </div>
+  </section>
+  <!-- ══ FIREBASE ══ -->
+  <script type="module">
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyATySgmlFF1X2bhCeFDZAByslMrEjqDB_w",
+  authDomain:        "foryoupage-c24e0.firebaseapp.com",
+  projectId:         "foryoupage-c24e0",
+  storageBucket:     "foryoupage-c24e0.firebasestorage.app",
+  messagingSenderId: "172871898986",
+  appId:             "1:172871898986:web:d5e2ba0e80ea83dbe53713"
+};
+
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+         GoogleAuthProvider, signInWithPopup, updateProfile, onAuthStateChanged,
+         sendPasswordResetEmail }
+                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp }
+                             from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const app      = initializeApp(FIREBASE_CONFIG);
+const auth     = getAuth(app);
+const db       = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    const tr = window._TR || {};
+    document.getElementById('authForms').style.display = 'none';
+    document.getElementById('successIcon').textContent  = '👋';
+    document.getElementById('successTitle').textContent = `${tr.welcome_back||'مرحباً'} ${user.displayName || ''}!`;
+    document.getElementById('successSub').textContent   = tr.already_logged || 'أنت مسجل الدخول بالفعل.';
+    document.getElementById('successEmail').textContent = user.email;
+    document.getElementById('successState').style.display = 'block';
+  }
+});
+
+async function ensureUserDoc(user) {
+  const ref  = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      name:      user.displayName || '',
+      email:     user.email,
+      balance:   0,
+      spent:     0,
+      plan:      null,
+      planPer:   0.80,
+      pages:     [],
+      createdAt: serverTimestamp()
+    });
+  }
+}
+
+function firebaseError(code) {
+  const tr = window._TR || {};
+  const map = {
+    'auth/email-already-in-use':   tr.err_used      || '⚠️ هذا الإيميل مسجل بالفعل، جرب تسجيل الدخول.',
+    'auth/user-not-found':         tr.err_notfound  || '⚠️ لا يوجد حساب بهذا الإيميل.',
+    'auth/wrong-password':         tr.err_wrongpwd  || '⚠️ كلمة المرور غير صحيحة.',
+    'auth/invalid-email':          tr.err_email     || '⚠️ صيغة الإيميل غير صحيحة.',
+    'auth/weak-password':          tr.err_weak      || '⚠️ كلمة المرور ضعيفة — 6 أحرف على الأقل.',
+    'auth/popup-closed-by-user':   tr.err_popup     || '⚠️ أغلقت نافذة Google، حاول مرة أخرى.',
+    'auth/network-request-failed': tr.err_net       || '⚠️ خطأ في الاتصال بالإنترنت.',
+    'auth/too-many-requests':      tr.err_limit     || '⚠️ محاولات كثيرة، انتظر قليلاً.',
+    'auth/invalid-credential':     tr.err_cred      || '⚠️ الإيميل أو كلمة المرور غير صحيحة.',
+  };
+  return map[code] || (tr.err_generic || '⚠️ حدث خطأ، حاول مرة أخرى.');
+}
+
+function showAuthError(id, msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');}
+function clearAuthError(id){const el=document.getElementById(id);if(el){el.textContent='';el.classList.remove('show');}}
+
+window._doSignup = async function(name, email, pwd) {
+  clearAuthError('su-error');
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pwd);
+    await updateProfile(cred.user, { displayName: name });
+    await ensureUserDoc({ ...cred.user, displayName: name });
+    showSuccess(email, 'signup', name);
+  } catch(e) {
+    showAuthError('su-error', firebaseError(e.code));
+    const btn = document.getElementById('su-btn');
+    btn.disabled = false;
+    btn.innerHTML = `<span id="su-btn-txt">${(window._TR||{}).signup_btn||'إنشاء حساب ←'}</span>`;
+  }
+};
+
+window._doLogin = async function(email, pwd) {
+  clearAuthError('li-error');
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pwd);
+    await ensureUserDoc(cred.user);
+    showSuccess(email, 'login', cred.user.displayName || '');
+  } catch(e) {
+    showAuthError('li-error', firebaseError(e.code));
+    const btn = document.getElementById('li-btn');
+    btn.disabled = false;
+    btn.innerHTML = `<span id="li-btn-txt">${(window._TR||{}).login_btn||'دخول ←'}</span>`;
+  }
+};
+
+window._doGoogle = async function() {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    await ensureUserDoc(result.user);
+    showSuccess(result.user.email, 'signup', result.user.displayName || '');
+  } catch(e) {
+    showAuthError('su-error', firebaseError(e.code));
+    showAuthError('li-error', firebaseError(e.code));
+    ['google-signup-btn','google-login-btn'].forEach(id=>{
+      const b=document.getElementById(id); if(b) b.disabled=false;
+    });
+  }
+};
+
+window._doForgotPassword = async function(email) {
+  const tr = window._TR || {};
+  if (!email) { alert(tr.forgot_enter || 'أدخل إيميلك أولاً في حقل البريد الإلكتروني'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    alert((tr.forgot_sent || '✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى ') + email);
+  } catch(e) { alert(firebaseError(e.code)); }
+};
+</script>
+  <!-- ══ UI + I18N ══ -->
+  <script>
+// ════════════════════════════════════════
+// نظام الترجمة — AR / EN / FR
+// ════════════════════════════════════════
+const I18N = {
+  ar: {
+    dir:'rtl', lang:'ar',
+    flag:'🇸🇦', label:'AR',
+    'nav-badge':'✦ مدعوم بالذكاء الاصطناعي',
+    'hero-tag':'منصة توليد صفحات الهبوط',
+    'hero-h1-1':'أنشئ صفحة هبوطك',
+    'hero-highlight':'بالذكاء الاصطناعي',
+    'hero-h1-end':'في ثوانٍ',
+    'hero-sub':'اكتب وصف مشروعك واحصل على صفحة هبوط احترافية جاهزة فوراً — بدون كود، بدون تصميم، بدون تعب.',
+    'stat1':'صفحة مُنشأة','stat2':'متوسط التوليد','stat3-num':'مجاني','stat3':'للبدء الآن',
+    'tab-signup-txt':'إنشاء حساب','tab-login-txt':'تسجيل الدخول',
+    'google-signup-txt':'إنشاء حساب بـ Google','google-login-txt':'الدخول بـ Google',
+    'divider-su':'أو بالإيميل','divider-li':'أو بالإيميل وكلمة المرور',
+    'lbl-name':'اسمك','name-ph':'محمد أحمد',
+    'lbl-email-su':'البريد الإلكتروني','lbl-email-li':'البريد الإلكتروني',
+    'lbl-pwd-su':'كلمة المرور','lbl-pwd-li':'كلمة المرور',
+    'su-name-err':'⚠ يرجى إدخال اسمك',
+    'su-email-err':'⚠ إيميل غير مقبول — Gmail أو Yahoo أو Hotmail',
+    'li-email-err':'⚠ إيميل غير مقبول',
+    'su-pwd-err':'⚠ 6 أحرف على الأقل',
+    'signup_btn':'إنشاء حساب ←','login_btn':'دخول ←',
+    'su-btn-loading':'جاري التسجيل','li-btn-loading':'جاري الدخول',
+    'forgot-link':'نسيت كلمة المرور؟',
+    'privacy-note':'بالتسجيل توافق على <a href="#">شروط الاستخدام</a>',
+    'login-note':'ليس لديك حساب؟ <a href="#" onclick="switchTab(\'signup\');return false;" id="go-signup">سجّل مجاناً</a>',
+    'btn-dashboard':'انتقل للوحة التحكم ←',
+    'feat1-title':'توليد فوري','feat1-text':'صف مشروعك واحصل على صفحة هبوط كاملة خلال 30 ثانية.',
+    'feat2-title':'تصميم احترافي','feat2-text':'كل صفحة مصممة بأسلوب فريد مناسب لمجالك.',
+    'feat3-title':'تصدير سهل','feat3-text':'حمّل الكود أو انشر الصفحة مباشرة في ثانية.',
+    welcome_back:'مرحباً', already_logged:'أنت مسجل الدخول بالفعل.',
+    forgot_enter:'أدخل إيميلك أولاً في حقل البريد الإلكتروني',
+    forgot_sent:'✅ تم إرسال رابط إعادة تعيين كلمة المرور إلى ',
+    err_used:'⚠️ هذا الإيميل مسجل بالفعل، جرب تسجيل الدخول.',
+    err_notfound:'⚠️ لا يوجد حساب بهذا الإيميل.',
+    err_wrongpwd:'⚠️ كلمة المرور غير صحيحة.',
+    err_email:'⚠️ صيغة الإيميل غير صحيحة.',
+    err_weak:'⚠️ كلمة المرور ضعيفة — 6 أحرف على الأقل.',
+    err_popup:'⚠️ أغلقت نافذة Google، حاول مرة أخرى.',
+    err_net:'⚠️ خطأ في الاتصال بالإنترنت.',
+    err_limit:'⚠️ محاولات كثيرة، انتظر قليلاً.',
+    err_cred:'⚠️ الإيميل أو كلمة المرور غير صحيحة.',
+    err_generic:'⚠️ حدث خطأ، حاول مرة أخرى.',
+    success_signup_title:'مرحباً بك في ForYouPage!',
+    success_login_title:'مرحباً',
+    success_sub_signup:'جاري التحويل للوحة التحكم...',
+    success_sub_login:'جاري التحويل للوحة التحكم...',
+  },
+  en: {
+    dir:'ltr', lang:'en',
+    flag:'🇺🇸', label:'EN',
+    'nav-badge':'✦ AI-Powered Platform',
+    'hero-tag':'Landing Page Generator',
+    'hero-h1-1':'Create Your Landing Page',
+    'hero-highlight':'with Artificial Intelligence',
+    'hero-h1-end':'in Seconds',
+    'hero-sub':'Describe your project and get a professional landing page instantly — no code, no design, no hassle.',
+    'stat1':'Pages Created','stat2':'Avg. Generation','stat3-num':'Free','stat3':'To Get Started',
+    'tab-signup-txt':'Sign Up','tab-login-txt':'Log In',
+    'google-signup-txt':'Sign up with Google','google-login-txt':'Continue with Google',
+    'divider-su':'or with email','divider-li':'or with email & password',
+    'lbl-name':'Your Name','name-ph':'John Doe',
+    'lbl-email-su':'Email Address','lbl-email-li':'Email Address',
+    'lbl-pwd-su':'Password','lbl-pwd-li':'Password',
+    'su-name-err':'⚠ Please enter your name',
+    'su-email-err':'⚠ Invalid email — use Gmail, Yahoo or Hotmail',
+    'li-email-err':'⚠ Invalid email address',
+    'su-pwd-err':'⚠ At least 6 characters required',
+    'signup_btn':'Create Account →','login_btn':'Log In →',
+    'su-btn-loading':'Signing up...','li-btn-loading':'Logging in...',
+    'forgot-link':'Forgot password?',
+    'privacy-note':'By signing up you agree to our <a href="#">Terms of Use</a>',
+    'login-note':'No account? <a href="#" onclick="switchTab(\'signup\');return false;" id="go-signup">Sign up free</a>',
+    'btn-dashboard':'Go to Dashboard →',
+    'feat1-title':'Instant Generation','feat1-text':'Describe your project and get a full landing page in 30 seconds.',
+    'feat2-title':'Pro Design','feat2-text':'Every page is uniquely designed to match your niche.',
+    'feat3-title':'Easy Export','feat3-text':'Download the code or publish your page in one click.',
+    welcome_back:'Welcome back', already_logged:'You are already logged in.',
+    forgot_enter:'Enter your email first in the email field',
+    forgot_sent:'✅ Password reset link sent to ',
+    err_used:'⚠️ This email is already registered. Try logging in.',
+    err_notfound:'⚠️ No account found with this email.',
+    err_wrongpwd:'⚠️ Incorrect password.',
+    err_email:'⚠️ Invalid email format.',
+    err_weak:'⚠️ Weak password — at least 6 characters.',
+    err_popup:'⚠️ Google popup was closed. Try again.',
+    err_net:'⚠️ Network error. Check your connection.',
+    err_limit:'⚠️ Too many attempts. Please wait.',
+    err_cred:'⚠️ Incorrect email or password.',
+    err_generic:'⚠️ An error occurred. Please try again.',
+    success_signup_title:'Welcome to ForYouPage!',
+    success_login_title:'Welcome back',
+    success_sub_signup:'Redirecting to dashboard...',
+    success_sub_login:'Redirecting to dashboard...',
+  },
+  fr: {
+    dir:'ltr', lang:'fr',
+    flag:'🇫🇷', label:'FR',
+    'nav-badge':'✦ Propulsé par l\'IA',
+    'hero-tag':'Générateur de pages d\'atterrissage',
+    'hero-h1-1':'Créez votre page',
+    'hero-highlight':'avec l\'Intelligence Artificielle',
+    'hero-h1-end':'en quelques secondes',
+    'hero-sub':'Décrivez votre projet et obtenez une page d\'atterrissage professionnelle instantanément — sans code, sans design, sans effort.',
+    'stat1':'Pages créées','stat2':'Temps moyen','stat3-num':'Gratuit','stat3':'Pour commencer',
+    'tab-signup-txt':'Créer un compte','tab-login-txt':'Se connecter',
+    'google-signup-txt':'S\'inscrire avec Google','google-login-txt':'Continuer avec Google',
+    'divider-su':'ou par e-mail','divider-li':'ou par e-mail et mot de passe',
+    'lbl-name':'Votre nom','name-ph':'Jean Dupont',
+    'lbl-email-su':'Adresse e-mail','lbl-email-li':'Adresse e-mail',
+    'lbl-pwd-su':'Mot de passe','lbl-pwd-li':'Mot de passe',
+    'su-name-err':'⚠ Veuillez entrer votre nom',
+    'su-email-err':'⚠ E-mail invalide — utilisez Gmail, Yahoo ou Hotmail',
+    'li-email-err':'⚠ Adresse e-mail invalide',
+    'su-pwd-err':'⚠ Au moins 6 caractères requis',
+    'signup_btn':'Créer un compte →','login_btn':'Se connecter →',
+    'su-btn-loading':'Inscription...','li-btn-loading':'Connexion...',
+    'forgot-link':'Mot de passe oublié ?',
+    'privacy-note':'En vous inscrivant, vous acceptez nos <a href="#">Conditions d\'utilisation</a>',
+    'login-note':'Pas de compte ? <a href="#" onclick="switchTab(\'signup\');return false;" id="go-signup">Inscrivez-vous gratuitement</a>',
+    'btn-dashboard':'Aller au tableau de bord →',
+    'feat1-title':'Génération instantanée','feat1-text':'Décrivez votre projet et obtenez une page complète en 30 secondes.',
+    'feat2-title':'Design professionnel','feat2-text':'Chaque page est conçue de manière unique pour votre secteur.',
+    'feat3-title':'Export facile','feat3-text':'Téléchargez le code ou publiez votre page en un clic.',
+    welcome_back:'Bonjour', already_logged:'Vous êtes déjà connecté.',
+    forgot_enter:'Entrez d\'abord votre e-mail dans le champ e-mail',
+    forgot_sent:'✅ Lien de réinitialisation envoyé à ',
+    err_used:'⚠️ Cet e-mail est déjà utilisé. Essayez de vous connecter.',
+    err_notfound:'⚠️ Aucun compte trouvé avec cet e-mail.',
+    err_wrongpwd:'⚠️ Mot de passe incorrect.',
+    err_email:'⚠️ Format d\'e-mail invalide.',
+    err_weak:'⚠️ Mot de passe faible — au moins 6 caractères.',
+    err_popup:'⚠️ La fenêtre Google a été fermée. Réessayez.',
+    err_net:'⚠️ Erreur réseau. Vérifiez votre connexion.',
+    err_limit:'⚠️ Trop de tentatives. Veuillez patienter.',
+    err_cred:'⚠️ E-mail ou mot de passe incorrect.',
+    err_generic:'⚠️ Une erreur s\'est produite. Réessayez.',
+    success_signup_title:'Bienvenue sur ForYouPage !',
+    success_login_title:'Bon retour',
+    success_sub_signup:'Redirection vers le tableau de bord...',
+    success_sub_login:'Redirection vers le tableau de bord...',
+  }
+};
+
+let currentLang = localStorage.getItem('fyp_index_lang') || 'ar';
+
+function applyLang(lang) {
+  const tr = I18N[lang];
+  if (!tr) return;
+  currentLang = lang;
+  window._TR = tr;
+  localStorage.setItem('fyp_index_lang', lang);
+
+  // document direction
+  document.documentElement.lang = tr.lang;
+  document.documentElement.dir  = tr.dir;
+  document.body.style.direction  = tr.dir;
+
+  // input name direction
+  const nameInp = document.getElementById('su-name');
+  if (nameInp) {
+    nameInp.style.direction = tr.dir;
+    nameInp.style.textAlign = tr.dir === 'rtl' ? 'right' : 'left';
+    nameInp.placeholder = tr['name-ph'] || '';
+  }
+
+  // update lang button
+  document.getElementById('currentFlag').textContent  = tr.flag;
+  document.getElementById('currentLangLabel').textContent = tr.label;
+
+  // mark active option
+  ['ar','en','fr'].forEach(l => {
+    document.getElementById('opt-'+l)?.classList.toggle('active', l === lang);
+  });
+
+  // helper
+  const set = (id, html, useHTML=false) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (useHTML) el.innerHTML = html;
+    else el.textContent = html;
+  };
+
+  set('nav-badge',       tr['nav-badge']);
+  set('hero-tag',        tr['hero-tag']);
+  set('hero-h1',         tr['hero-h1-1'] + '\n', false);
+  // rebuild h1 properly
+  const h1 = document.getElementById('hero-h1');
+  if (h1) h1.innerHTML = `${tr['hero-h1-1']}<br/><span class="highlight">${tr['hero-highlight']}</span><br/><span id="hero-h1-end">${tr['hero-h1-end']}</span>`;
+  set('hero-sub',        tr['hero-sub']);
+  set('stat1',           tr['stat1']);
+  set('stat2',           tr['stat2']);
+  set('stat3-num',       tr['stat3-num']);
+  set('stat3',           tr['stat3']);
+  set('tab-signup',      tr['tab-signup-txt']);
+  set('tab-login',       tr['tab-login-txt']);
+  set('google-signup-txt', tr['google-signup-txt']);
+  set('google-login-txt',  tr['google-login-txt']);
+  set('divider-su',      tr['divider-su']);
+  set('divider-li',      tr['divider-li']);
+  set('lbl-name',        tr['lbl-name']);
+  set('lbl-email-su',    tr['lbl-email-su']);
+  set('lbl-email-li',    tr['lbl-email-li']);
+  set('lbl-pwd-su',      tr['lbl-pwd-su']);
+  set('lbl-pwd-li',      tr['lbl-pwd-li']);
+  set('su-name-err',     tr['su-name-err']);
+  set('su-email-err',    tr['su-email-err']);
+  set('li-email-err',    tr['li-email-err']);
+  set('su-pwd-err',      tr['su-pwd-err']);
+  set('su-btn-txt',      tr['signup_btn']);
+  set('li-btn-txt',      tr['login_btn']);
+  set('forgot-link',     tr['forgot-link']);
+  set('privacy-note',    tr['privacy-note'], true);
+  set('login-note',      tr['login-note'], true);
+  set('btn-dashboard',   tr['btn-dashboard']);
+  set('feat1-title',     tr['feat1-title']);
+  set('feat1-text',      tr['feat1-text']);
+  set('feat2-title',     tr['feat2-title']);
+  set('feat2-text',      tr['feat2-text']);
+  set('feat3-title',     tr['feat3-title']);
+  set('feat3-text',      tr['feat3-text']);
+}
+
+function setLang(lang) {
+  applyLang(lang);
+  closeLangDropdown();
+}
+
+function toggleLangDropdown() {
+  const dd  = document.getElementById('langDropdown');
+  const btn = document.getElementById('langBtn');
+  const open = dd.classList.toggle('open');
+  btn.classList.toggle('open', open);
+}
+
+function closeLangDropdown() {
+  document.getElementById('langDropdown').classList.remove('open');
+  document.getElementById('langBtn').classList.remove('open');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  if (!document.getElementById('langSwitcher').contains(e.target)) closeLangDropdown();
+});
+
+// ── Auth helpers ──
+const ALLOWED=['gmail.com','yahoo.com','hotmail.com','outlook.com','live.com','icloud.com'];
+function isValidEmail(e){if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return false;return ALLOWED.includes(e.split('@')[1]?.toLowerCase());}
+function showErr(id,show){const el=document.getElementById(id);if(el)el.classList.toggle('show',show);}
+function setInputState(inp,stId,state){
+  inp.classList.remove('error','valid');
+  const st=stId?document.getElementById(stId):null;
+  if(st)st.style.opacity='0';
+  if(state==='valid'){inp.classList.add('valid');if(st){st.textContent='✓';st.style.color='var(--success)';st.style.opacity='1';}}
+  else if(state==='error'){inp.classList.add('error');if(st){st.textContent='✗';st.style.color='var(--error)';st.style.opacity='1';}}
+}
+function liveEmail(inp,errId,stId){
+  const v=inp.value.trim();showErr(errId,false);setInputState(inp,stId,null);
+  if(v.length>4){if(isValidEmail(v))setInputState(inp,stId,'valid');else if(v.includes('@')){setInputState(inp,stId,'error');showErr(errId,true);}}
+}
+function blurEmail(inp,errId){if(inp.value.trim()&&!isValidEmail(inp.value.trim())){inp.classList.add('error');showErr(errId,true);}}
+function liveValidateName(inp){inp.classList.remove('error','valid');if(inp.value.trim().length>=2)inp.classList.add('valid');}
+function liveValidatePwd(inp,errId){
+  inp.classList.remove('error','valid');showErr(errId,false);
+  if(inp.value.length>=6)inp.classList.add('valid');
+  else if(inp.value.length>0){inp.classList.add('error');showErr(errId,true);}
+}
+function togglePwd(id,btn){
+  const inp=document.getElementById(id);
+  inp.type=inp.type==='password'?'text':'password';
+  btn.style.color=inp.type==='text'?'var(--accent2)':'var(--muted)';
+}
+function switchTab(tab){
+  ['signup','login'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+    document.getElementById('panel-'+t).classList.toggle('active',t===tab);
+  });
+  document.getElementById('tabSlider').classList.toggle('moved',tab==='login');
+}
+
+function handleSignup(){
+  const tr=window._TR||I18N.ar;
+  const name=document.getElementById('su-name').value.trim();
+  const email=document.getElementById('su-email').value.trim();
+  const pwd=document.getElementById('su-pwd').value;
+  let ok=true;
+  if(name.length<2){document.getElementById('su-name').classList.add('error');showErr('su-name-err',true);ok=false;}
+  if(!isValidEmail(email)){setInputState(document.getElementById('su-email'),'su-email-st','error');showErr('su-email-err',true);ok=false;}
+  if(pwd.length<6){document.getElementById('su-pwd').classList.add('error');showErr('su-pwd-err',true);ok=false;}
+  if(!ok)return;
+  const btn=document.getElementById('su-btn');
+  btn.disabled=true;
+  btn.innerHTML=`${tr['su-btn-loading']||'جاري التسجيل'} <span class="spinner"></span>`;
+  window._doSignup(name, email, pwd);
+}
+
+function handleLogin(){
+  const tr=window._TR||I18N.ar;
+  const email=document.getElementById('li-email').value.trim();
+  const pwd=document.getElementById('li-pwd').value;
+  let ok=true;
+  if(!isValidEmail(email)){setInputState(document.getElementById('li-email'),'li-email-st','error');showErr('li-email-err',true);ok=false;}
+  if(pwd.length<1){document.getElementById('li-pwd').classList.add('error');ok=false;}
+  if(!ok)return;
+  const btn=document.getElementById('li-btn');
+  btn.disabled=true;
+  btn.innerHTML=`${tr['li-btn-loading']||'جاري الدخول'} <span class="spinner"></span>`;
+  window._doLogin(email, pwd);
+}
+
+function handleGoogle(){
+  ['google-signup-btn','google-login-btn'].forEach(id=>{
+    const b=document.getElementById(id); if(b) b.disabled=true;
+  });
+  window._doGoogle();
+}
+
+function handleForgotPassword(){
+  const email=document.getElementById('li-email').value.trim();
+  window._doForgotPassword(email);
+}
+
+function showSuccess(email, type, name){
+  const tr = window._TR || I18N.ar;
+  document.getElementById('authForms').style.display='none';
+  document.getElementById('successEmail').textContent = email;
+  if(type==='login'){
+    document.getElementById('successIcon').textContent  = '👋';
+    document.getElementById('successTitle').textContent = `${tr.success_login_title||'مرحباً'} ${name}!`;
+    document.getElementById('successSub').textContent   = tr.success_sub_login || 'جاري التحويل...';
+  } else {
+    document.getElementById('successIcon').textContent  = '🎉';
+    document.getElementById('successTitle').textContent = `${tr.success_signup_title||'مرحباً بك!'} ${name}`;
+    document.getElementById('successSub').textContent   = tr.success_sub_signup || 'جاري التحويل...';
+  }
+  document.getElementById('successState').style.display='block';
+  setTimeout(()=>{ window.location.href='dashboard.html'; }, 1500);
+}
+
+// ── تطبيق اللغة عند التحميل ──
+applyLang(currentLang);
+</script>
+ </body>
+</html>
