@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
         'X-Title': 'ForYouPage'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        model: 'openrouter/auto',
         max_tokens: 8192,
         messages
       }),
