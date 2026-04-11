@@ -1,4 +1,3 @@
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -39,7 +38,7 @@ module.exports = async function handler(req, res) {
         'X-Title': 'ForYouPage'
       },
       body: JSON.stringify({
-        model: 'google/gemini-flash-1.5-8b:free',
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
         max_tokens: 8192,
         messages
       }),
