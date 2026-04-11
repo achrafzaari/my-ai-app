@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
               role: 'user',
               content: [
                 { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
-                { type: 'text', text: 'Describe this product in 1 short sentence in English. Only type, color, style. Example: "white Nike running shoe". Nothing else.' }
+                { type: 'text', text: 'Describe this product very precisely in English: brand name, product type, color, shape, cap/lid/packaging details. Be specific. Example: "NIVEA Pearl Beauty roll-on deodorant, transparent cylindrical bottle, white cap, pink and white label". Only the description, nothing else.' }
               ]
             }]
           })
@@ -55,12 +55,13 @@ module.exports = async function handler(req, res) {
         }
 
         // ══════════════════════════════════════════
-        // STEP 2: توليد 3 صور مختلفة بـ HF
+        // STEP 2: توليد 4 صور مختلفة بـ HF
         // ══════════════════════════════════════════
         const imagePrompts = [
-          `professional product photography of ${productDesc}, clean white background, studio lighting, sharp focus, commercial photo, 4k`,
-          `${productDesc}, lifestyle photography, beautiful background, natural lighting, elegant, high quality`,
-          `${productDesc}, flat lay photography, minimalist aesthetic, top view, clean background, professional`
+          `professional product photography of ${productDesc}, pure white background, studio lighting, sharp focus, centered, commercial quality, 4k`,
+          `${productDesc}, close up detail shot, showing texture and quality, soft background, professional macro photography`,
+          `${productDesc}, lifestyle shot, elegant real-world setting, natural lighting, beautiful composition`,
+          `${productDesc}, flat lay top view, minimalist white background, clean aesthetic, professional photography`
         ];
 
         console.log('Generating 3 images...');
@@ -173,42 +174,55 @@ module.exports = async function handler(req, res) {
     let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
     // ══════════════════════════════════════════
-    // STEP 4: حقن الصور في الـ HTML
+    // STEP 4: حقن الصور في أماكن مختلفة
     // ══════════════════════════════════════════
     if (generatedImages.length > 0) {
 
-      // بناء gallery HTML للصور المولدة
-      const galleryHtml = `
-<section id="product-gallery" style="padding:40px 20px;background:#f8f9fa;text-align:center;">
-  <h2 style="font-family:'Cairo',sans-serif;font-size:1.5rem;font-weight:700;margin-bottom:30px;color:#1a1a2e;">صور المنتج</h2>
-  <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:900px;margin:0 auto;">
-    ${generatedImages.map((img, i) => `
-    <div style="flex:1;min-width:200px;max-width:280px;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.12);background:#fff;transition:transform 0.3s;" onmouseover="this.style.transform='translateY(-5px)'" onmouseout="this.style.transform='translateY(0)'">
-      <img src="data:${img.type};base64,${img.b64}" alt="صورة المنتج ${i + 1}" style="width:100%;height:250px;object-fit:cover;display:block;">
-    </div>`).join('')}
-  </div>
-</section>`;
+      const makeImg = (img, style='') =>
+        `<img src="data:${img.type};base64,${img.b64}" alt="صورة المنتج" style="max-width:100%;width:100%;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:block;margin:16px auto;${style}">`;
 
-      // استبدال placeholder أو إضافة gallery بعد Hero
       if (html.includes('PRODUCT_IMAGE_BASE64')) {
-        // استبدل أول صورة في placeholder
+        // استبدل placeholder بالصورة الأولى
         html = html.replace('PRODUCT_IMAGE_BASE64', `data:${generatedImages[0].type};base64,${generatedImages[0].b64}`);
-        // أضف gallery بعد Hero
-        html = html.replace('</section>', `</section>${galleryHtml}`);
-      } else {
-        // أضف gallery بعد أول h1
-        html = html.replace(/(<\/h1>)/i, `$1${galleryHtml}`);
+      }
+
+      // أضف الصور في أماكن مختلفة من الصفحة
+      if (generatedImages[1]) {
+        // صورة 2 بعد قسم المميزات
+        html = html.replace(
+          /(<\/section>)/,
+          `$1\n<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[1])}</div>`
+        );
+      }
+
+      if (generatedImages[2]) {
+        // صورة 3 قبل قسم السعر أو الشهادات
+        const insertPoint = html.lastIndexOf('</section>');
+        if (insertPoint > 0) {
+          html = html.slice(0, insertPoint) +
+            `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[2])}</div>` +
+            html.slice(insertPoint);
+        }
+      }
+
+      if (generatedImages[3]) {
+        // صورة 4 قبل الفورم أو التذييل
+        html = html.replace(
+          /(<footer)/i,
+          `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[3])}</div>\n$1`
+        );
       }
 
     } else if (hasImg) {
-      // fallback: استخدم الصورة الأصلية
+      // fallback: صورة أصلية واحدة
       const imgDataUrl = `data:${imgType};base64,${imgB64}`;
-      const fallbackImg = `<img src="${imgDataUrl}" alt="صورة المنتج" style="max-width:100%;width:420px;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:20px auto;">`;
-
       if (html.includes('PRODUCT_IMAGE_BASE64')) {
         html = html.replace(/src="[^"]*PRODUCT_IMAGE_BASE64[^"]*"/g, `src="${imgDataUrl}"`);
       } else {
-        html = html.replace(/(<\/h[12][^>]*>)/i, `$1\n${fallbackImg}`);
+        html = html.replace(
+          /(<\/h[12][^>]*>)/i,
+          `$1\n<img src="${imgDataUrl}" alt="صورة المنتج" style="max-width:100%;width:420px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:20px auto;">`
+        );
       }
     }
 
