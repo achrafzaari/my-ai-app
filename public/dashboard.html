@@ -808,42 +808,105 @@ window.doGenerate = async function() {
   const mainColor = window.selColor || '#1bc47d';
   const isDark    = designStyle.includes('داكن') || designStyle.includes('Dark') || designStyle.includes('Sombre');
 
-  const prompt = `أنت خبير تسويق رقمي متخصص في كتابة صفحات هبوط عالية التحويل.
+  // ── ترجمة الإعدادات بوضوح للـ AI ──
+  const qualityMap = {
+    '1K': 'اكتب محتوى بسيطاً — حوالي 1000 كلمة في الصفحة كلها',
+    '2K': 'اكتب محتوى متوسط التفصيل — حوالي 2000 كلمة في الصفحة كلها',
+    '3K': 'اكتب محتوى مفصل وغني — حوالي 3000 كلمة في الصفحة كلها',
+    '4K': 'اكتب محتوى احترافي ومتكامل جداً — 4000 كلمة أو أكثر في الصفحة كلها'
+  };
+  const wordCount = qualityMap[quality] || qualityMap['1K'];
 
-اللغة: ${langMap[lang] || 'العربية الفصحى'}
-السوق المستهدف: ${country}
-${isBrandMode && brandName ? `العلامة التجارية: ${brandName}` : ''}
+  const lengthMap = {
+    'XL':    'اجعل الصفحة طويلة جداً — 10 أقسام أو أكثر — كل قسم مفصل',
+    'طويل':  'اجعل الصفحة طويلة — 7 إلى 9 أقسام مفصلة',
+    'عادي':  'اجعل الصفحة متوسطة الطول — 5 إلى 6 أقسام',
+    'Long':  'اجعل الصفحة طويلة — 7 إلى 9 أقسام مفصلة',
+    'Normal':'اجعل الصفحة متوسطة الطول — 5 إلى 6 أقسام'
+  };
+  const pageLengthDesc = lengthMap[pageLength] || lengthMap['عادي'];
 
-【معلومات المنتج】
-${desc}
-${notes ? `
-【ملاحظات إضافية】
-${notes}` : ''}
+  const angleMap = {
+    'تلقائي':        'اختر أفضل زاوية تسويقية تلقائياً حسب طبيعة المنتج',
+    'الفوائد':       'ركز على فوائد المنتج وكيف يحسن حياة العميل',
+    'الثقة والضمان': 'ركز على الثقة والضمان وآراء العملاء الإيجابية',
+    'الندرة والعرض': 'ركز على محدودية الكمية والعرض المحدود الوقت لخلق urgency',
+    'Auto':          'Choose best marketing angle automatically',
+    'Benefits':      'Focus on product benefits and how it improves life',
+    'Trust':         'Focus on trust, guarantee and positive reviews',
+    'Scarcity':      'Focus on limited quantity and time-limited offer'
+  };
+  const angleDesc = angleMap[marketAngle] || angleMap['تلقائي'];
 
-【إعدادات الصفحة】
-- طول الصفحة: ${pageLength}
-- جودة المحتوى: ${quality}
-- الزاوية التسويقية: ${marketAngle}
-- نموذج الطلب: ${orderForm === 'مفعّل' || orderForm === 'Active' || orderForm === 'Activé' ? 'أضف نموذج طلب (الاسم، الهاتف، المدينة)' : 'بدون نموذج طلب'}
-- نمط التصميم: ${isDark ? 'داكن — خلفية سوداء/رمادية، نصوص فاتحة' : 'فاتح — خلفية بيضاء، نصوص داكنة'}
-- أزرار CTA: ${ctaStyle}
-- اللون الرئيسي: ${mainColor}
-${priceEnabled && priceNow ? `- السعر الحالي: ${priceNow} ${currency}${priceOld ? ` (مشطوب: ${priceOld} ${currency})` : ''}` : '- لا تعرض أسعاراً'}
-${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
-${imgB64 ? '- صورة المنتج: مرفقة — استخدم وصفها في تحسين النصوص التسويقية' : ''}
+  const hasImg = imgB64 && imgB64.length > 0;
 
-【المطلوب】
-اكتب صفحة هبوط HTML/CSS/JS كاملة ومتجاوبة تحتوي على:
-1. Hero: عنوان قوي + وصف + زر CTA
-2. مميزات المنتج (3-4 مع أيقونات)
-3. شهادات العملاء (2-3)
-4. عرض السعر والتخفيض
-5. ضمان الجودة والثقة
-6. نموذج الطلب (إذا مفعّل)
-7. تذييل الصفحة
+  const promptParts = [
+    'أنت مطور ويب ومصمم UI/UX محترف. مهمتك إنشاء صفحة هبوط تسويقية مبهرة بصرياً.',
+    '',
+    '═══ معلومات المنتج ═══',
+    'المنتج: ' + desc,
+    notes ? 'تفاصيل إضافية: ' + notes : '',
+    (isBrandMode && brandName) ? 'العلامة التجارية: ' + brandName : '',
+    'السوق المستهدف: ' + country,
+    'لغة الصفحة: ' + (langMap[lang] || 'العربية الفصحى'),
+    'اتجاه الكتابة: من اليمين لليسار RTL',
+    '',
+    '═══ إعدادات طول الصفحة وجودتها ═══',
+    '** طول الصفحة: ' + pageLengthDesc + ' **',
+    '** جودة المحتوى النصي: ' + wordCount + ' **',
+    'ملاحظة مهمة: XL و 4K تعني طول وجودة صفحة الهبوط نفسها وليس حجم المنتج',
+    '',
+    '═══ الزاوية التسويقية ═══',
+    angleDesc,
+    '',
+    '═══ التصميم البصري ═══',
+    'اللون الرئيسي: ' + mainColor,
+    isDark
+      ? 'النمط: داكن — استخدم خلفية #0d0d0d أو #111 مع gradients داكنة جذابة ونصوص فاتحة'
+      : 'النمط: فاتح — استخدم gradient ملون في Hero (مثل linear-gradient بـ ' + mainColor + ')، وليس أبيض فارغ مملة',
+    'يجب أن تكون الصفحة مبهرة بصرياً مع ألوان gradient وليست بيضاء/رمادية فارغة',
+    '',
+    '═══ صورة المنتج ═══',
+    hasImg
+      ? 'يوجد صورة للمنتج مرفقة — ضع هذا الـ img tag بالضبط في قسم Hero:\n<img src="data:' + imgType + ';base64,PRODUCT_IMAGE_BASE64" alt="صورة المنتج" style="max-width:100%;width:420px;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:auto;">\nلا تغير الـ src أبداً — اتركه كما هو بالضبط'
+      : 'لا توجد صورة — استخدم CSS gradient أو shapes مزخرفة في Hero بدل الصورة',
+    '',
+    '═══ المحتوى والوظائف ═══',
+    (orderForm === 'مفعّل' || orderForm === 'Active' || orderForm === 'Activé')
+      ? 'فورم الطلب: أضف فورم طلب جميل يحتوي على: حقل الاسم الكامل + رقم الهاتف + المدينة + زر تأكيد الطلب'
+      : 'فورم الطلب: لا تضف أي فورم',
+    (ctaStyle === 'حية' || ctaStyle === 'Active' || ctaStyle === 'Activé')
+      ? 'أزرار CTA: أزرار HTML حقيقية تنتقل للفورم عند الضغط باستخدام scrollIntoView'
+      : 'أزرار CTA: لا تضف أزرار CTA',
+    (priceEnabled && priceNow)
+      ? 'السعر: ' + priceNow + ' ' + currency + (priceOld ? ' — والسعر الأصلي مشطوب بالأحمر: ' + priceOld + ' ' + currency : '')
+      : '',
+    offers.length ? 'عروض خاصة تظهر في Hero: ' + offers.join(' + ') : '',
+    '',
+    '═══ هيكل الصفحة المطلوب ═══',
+    '1. Hero: خلفية gradient مبهرة + عنوان كبير جريء + وصف مقنع + ' + (hasImg ? 'صورة المنتج (إلزامي كما هو)' : 'عنصر CSS جميل') + ' + زر CTA كبير',
+    '2. المميزات: 3 أو 4 ميزات مع أيقونات emoji كبيرة + بطاقات بظلال عميقة + hover effects',
+    '3. شهادات العملاء: 2 أو 3 شهادات مقنعة مع نجوم تقييم',
+    '4. السعر: بطاقة سعر احترافية مع شارة عرض محدود' + (priceOld ? ' + سعر مشطوب بالأحمر' : ''),
+    '5. الثقة والضمان: شارات ثقة + ضمان استرداد المال',
+    (orderForm === 'مفعّل' || orderForm === 'Active' || orderForm === 'Activé') ? '6. فورم الطلب: تصميم جميل ومبسط' : '',
+    '7. تذييل الصفحة: معلومات التواصل',
+    '',
+    '═══ متطلبات تقنية إلزامية ═══',
+    '- استورد خط Cairo أو Tajawal من Google Fonts في head',
+    '- أضف CSS animations: fadeIn و slideUp تعمل عند التمرير',
+    '- Hover effects جميلة على جميع البطاقات والأزرار',
+    '- Gradient backgrounds في كل قسم — لا تستخدم لوناً أبيض أو رمادياً فارغاً',
+    '- Box-shadows عميقة على البطاقات',
+    '- Responsive للموبايل والكمبيوتر',
+    '- HTML/CSS/JS فقط بدون أي مكتبات خارجية',
+    '- جميع النصوص يجب أن تكون بـ ' + (langMap[lang] || 'العربية الفصحى'),
+    hasImg ? '- مهم جداً: ضع صورة المنتج في قسم Hero كما هو محدد أعلاه' : '',
+    '',
+    'أرجع فقط كود HTML كامل يبدأ بـ <!DOCTYPE html> بدون أي شرح أو markdown.'
+  ].filter(Boolean).join('\n');
 
-اللون الرئيسي: ${mainColor} — التصميم: ${isDark ? 'داكن' : 'فاتح'} — الاتجاه: RTL
-أرجع فقط كود HTML كامل يبدأ بـ <!DOCTYPE html> بدون أي شرح.`;
+  const prompt = promptParts;
 
   try {
     // ✅ FIX 3: Send imgB64 and imgType in the request body
@@ -1361,3 +1424,4 @@ applyTranslations();
 </script>
 </body>
 </html>
+
