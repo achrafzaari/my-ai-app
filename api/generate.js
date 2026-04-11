@@ -12,21 +12,17 @@ module.exports = async function handler(req, res) {
 
     const openrouterKey = process.env.OPENROUTER_API_KEY;
     const hfKey = process.env.HF_API_KEY;
-
     if (!openrouterKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' });
 
     const hasImg = imgB64 && imgB64.length > 0;
 
     // ══════════════════════════════════════════
-    // STEP 1: فهم المنتج من الصورة
+    // STEP 1: فهم المنتج (سريع)
     // ══════════════════════════════════════════
     let productDesc = 'professional product';
-    let generatedImages = [];
 
     if (hasImg && hfKey) {
       try {
-        console.log('Understanding product from image...');
-
         const descRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -37,204 +33,115 @@ module.exports = async function handler(req, res) {
           },
           body: JSON.stringify({
             model: 'openrouter/auto',
-            max_tokens: 100,
+            max_tokens: 80,
             messages: [{
               role: 'user',
               content: [
                 { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
-                { type: 'text', text: 'Describe this product very precisely in English: brand name, product type, color, shape, cap/lid/packaging details. Be specific. Example: "NIVEA Pearl Beauty roll-on deodorant, transparent cylindrical bottle, white cap, pink and white label". Only the description, nothing else.' }
+                { type: 'text', text: 'Describe this product precisely in English: brand, type, color, shape, packaging. One sentence only.' }
               ]
             }]
           })
         });
-
         if (descRes.ok) {
-          const descData = await descRes.json();
-          productDesc = descData.choices?.[0]?.message?.content?.trim() || productDesc;
+          const d = await descRes.json();
+          productDesc = d.choices?.[0]?.message?.content?.trim() || productDesc;
           console.log('Product:', productDesc);
         }
-
-        // ══════════════════════════════════════════
-        // STEP 2: توليد 4 صور مختلفة بـ HF
-        // ══════════════════════════════════════════
-        const imagePrompts = [
-          `professional product photography of ${productDesc}, pure white background, studio lighting, sharp focus, centered, commercial quality, 4k`,
-          `${productDesc}, lifestyle shot, elegant real-world setting, natural lighting, beautiful composition`
-        ];
-
-        console.log('Generating 3 images...');
-
-        const imagePromises = imagePrompts.map(async (imgPrompt, index) => {
-          try {
-            const hfRes = await fetch(
-              'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${hfKey}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  inputs: imgPrompt,
-                  parameters: {
-                    width: 512,
-                    height: 512,
-                    num_inference_steps: 4,
-                    guidance_scale: 0
-                  }
-                })
-              }
-            );
-
-            console.log(`Image ${index + 1} HF status:`, hfRes.status);
-
-            if (hfRes.ok) {
-              const imgBuffer = await hfRes.arrayBuffer();
-              const b64 = Buffer.from(imgBuffer).toString('base64');
-              console.log(`Image ${index + 1} generated, size:`, b64.length);
-              return { index, b64, type: 'image/jpeg' };
-            } else {
-              const err = await hfRes.text();
-              console.error(`Image ${index + 1} error:`, err);
-              return null;
-            }
-          } catch (e) {
-            console.error(`Image ${index + 1} exception:`, e.message);
-            return null;
-          }
-        });
-
-        const results = await Promise.all(imagePromises);
-        generatedImages = results.filter(Boolean);
-        console.log(`Generated ${generatedImages.length} images successfully`);
-
-      } catch (err) {
-        console.error('Image generation error:', err.message);
-      }
+      } catch(e) { console.error('Desc error:', e.message); }
     }
 
     // ══════════════════════════════════════════
-    // STEP 3: توليد الـ HTML بـ OpenRouter
+    // STEP 2: توليد الصور و HTML بالتوازي
     // ══════════════════════════════════════════
-    const messages = [];
+    const generateImage = async (imgPrompt, index) => {
+      if (!hfKey) return null;
+      try {
+        const hfRes = await fetch(
+          'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              inputs: imgPrompt,
+              parameters: { width: 512, height: 512, num_inference_steps: 4, guidance_scale: 0 }
+            })
+          }
+        );
+        console.log(`Image ${index} HF status:`, hfRes.status);
+        if (!hfRes.ok) return null;
+        const buf = await hfRes.arrayBuffer();
+        return { index, b64: Buffer.from(buf).toString('base64'), type: 'image/jpeg' };
+      } catch(e) { console.error(`Image ${index} error:`, e.message); return null; }
+    };
 
-    // أضف معلومات الصور للـ prompt
-    const imagesNote = generatedImages.length > 0
-      ? `\n\nمهم جداً: لا تضع أي img tag في الكود — الصور ستُحقن تلقائياً في الصفحة. فقط اصنع تصميم HTML/CSS جميل بدون صور.`
-      : hasImg
-      ? `\n\nمهم: لا تضع أي img tag — الصورة ستُضاف تلقائياً بعد العنوان الرئيسي.`
-      : '';
-
-    const finalPrompt = prompt + imagesNote;
-
-    if (hasImg) {
-      messages.push({
+    const generateHTML = async () => {
+      const imagesNote = hasImg
+        ? '\n\nمهم: لا تضع أي img tag في الكود — الصور ستُحقن تلقائياً.'
+        : '';
+      const messages = hasImg ? [{
         role: 'user',
         content: [
           { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
-          { type: 'text', text: finalPrompt }
+          { type: 'text', text: prompt + imagesNote }
         ]
+      }] : [{ role: 'user', content: prompt + imagesNote }];
+
+      const res2 = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openrouterKey}`,
+          'HTTP-Referer': 'https://my-ai-app-five-nu.vercel.app',
+          'X-Title': 'ForYouPage'
+        },
+        body: JSON.stringify({ model: 'openrouter/auto', max_tokens: 12000, messages })
       });
-    } else {
-      messages.push({ role: 'user', content: finalPrompt });
-    }
+      console.log('OpenRouter status:', res2.status);
+      if (!res2.ok) throw new Error(`OpenRouter ${res2.status}`);
+      const d = await res2.json();
+      return d.choices?.[0]?.message?.content || '';
+    };
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterKey}`,
-        'HTTP-Referer': 'https://my-ai-app-five-nu.vercel.app',
-        'X-Title': 'ForYouPage'
-      },
-      body: JSON.stringify({
-        model: 'openrouter/auto',
-        max_tokens: 16000,
-        messages
-      })
-    });
+    // تشغيل الصور و HTML بالتوازي
+    const [rawText, img1, img2] = await Promise.all([
+      generateHTML(),
+      hasImg && hfKey ? generateImage(`professional product photography of ${productDesc}, white background, studio lighting, sharp focus, 4k`, 1) : Promise.resolve(null),
+      hasImg && hfKey ? generateImage(`${productDesc}, lifestyle shot, elegant setting, natural lighting, beautiful`, 2) : Promise.resolve(null),
+    ]);
 
-    console.log('OpenRouter status:', response.status);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenRouter error:', errText);
-      return res.status(502).json({ error: `OpenRouter error: ${response.status}`, details: errText });
-    }
-
-    const data = await response.json();
-    const rawText = data.choices?.[0]?.message?.content || '';
-
-    if (!rawText) {
-      return res.status(502).json({ error: 'Empty response from AI' });
-    }
+    if (!rawText) return res.status(502).json({ error: 'Empty response from AI' });
 
     let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
+    const generatedImages = [img1, img2].filter(Boolean);
+    console.log(`Generated ${generatedImages.length} images`);
+
     // ══════════════════════════════════════════
-    // STEP 4: حقن الصور في أماكن مختلفة
+    // STEP 3: حقن الصور في الصفحة
     // ══════════════════════════════════════════
+    const makeImg = (img) =>
+      `<div style="max-width:460px;margin:24px auto;padding:0 16px;"><img src="data:${img.type};base64,${img.b64}" alt="صورة المنتج" style="width:100%;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:block;"></div>`;
+
     if (generatedImages.length > 0) {
-
-      const makeImg = (img, style='') =>
-        `<img src="data:${img.type};base64,${img.b64}" alt="صورة المنتج" style="max-width:100%;width:100%;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:block;margin:16px auto;${style}">`;
-
-      // ✅ صورة 1: احقن مباشرة بعد أول h1 في Hero
-      html = html.replace(
-        /(<\/h1>)/i,
-        `$1\n<div style="max-width:420px;margin:20px auto;">${makeImg(generatedImages[0])}</div>`
-      );
-
-      // ✅ صورة 2: بعد أول </section>
+      // صورة 1 بعد h1
+      html = html.replace(/(<\/h1>)/i, `$1\n${makeImg(generatedImages[0])}`);
+      // صورة 2 قبل footer أو نهاية body
       if (generatedImages[1]) {
-        html = html.replace(
-          /(<\/section>)/,
-          `$1\n<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[1])}</div>`
-        );
-      }
-
-      // ✅ صورة 3: قبل آخر </section>
-      if (generatedImages[2]) {
-        const lastSection = html.lastIndexOf('</section>');
-        if (lastSection > 0) {
-          html = html.slice(0, lastSection) +
-            `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[2])}</div>` +
-            html.slice(lastSection);
-        }
-      }
-
-      // ✅ صورة 4: قبل footer أو نهاية body
-      if (generatedImages[3]) {
         if (html.includes('<footer')) {
-          html = html.replace(
-            /(<footer)/i,
-            `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[3])}</div>\n$1`
-          );
+          html = html.replace(/(<footer)/i, `${makeImg(generatedImages[1])}\n$1`);
         } else {
-          html = html.replace(
-            '</body>',
-            `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[3])}</div>\n</body>`
-          );
+          html = html.replace('</body>', `${makeImg(generatedImages[1])}\n</body>`);
         }
       }
-
     } else if (hasImg) {
-      // fallback: صورة أصلية واحدة بعد h1
       const imgDataUrl = `data:${imgType};base64,${imgB64}`;
-      html = html.replace(
-        /(<\/h1>)/i,
-        `$1\n<div style="max-width:420px;margin:20px auto;"><img src="${imgDataUrl}" alt="صورة المنتج" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:auto;"></div>`
-      );
+      html = html.replace(/(<\/h1>)/i, `$1\n<div style="max-width:460px;margin:24px auto;padding:0 16px;"><img src="${imgDataUrl}" alt="صورة المنتج" style="width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;"></div>`);
     }
 
-    if (!html.includes('</html>')) {
-      html += '\n</body></html>';
-    }
+    if (!html.includes('</html>')) html += '\n</body></html>';
 
-    return res.status(200).json({
-      html,
-      imagesGenerated: generatedImages.length
-    });
+    return res.status(200).json({ html, imagesGenerated: generatedImages.length });
 
   } catch (err) {
     console.error('ERROR:', err.message);
