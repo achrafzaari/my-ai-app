@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
         'X-Title': 'ForYouPage'
       },
       body: JSON.stringify({
-        model: 'openrouter/auto',
+        model: 'google/gemma-3-27b-it:free',
         max_tokens: 8192,
         messages
       }),
