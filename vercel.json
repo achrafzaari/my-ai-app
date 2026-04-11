@@ -11,8 +11,16 @@
       "dest": "/api/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "src": "/dashboard",
+      "dest": "/dashboard.html"
+    },
+    {
+      "src": "/dashboard.html",
+      "dest": "/dashboard.html"
+    },
+    {
+      "src": "/",
+      "dest": "/public/index.html"
     }
   ]
 }
