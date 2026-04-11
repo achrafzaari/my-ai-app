@@ -129,7 +129,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'openrouter/auto',
-        max_tokens: 8192,
+        max_tokens: 16000,
         messages
       })
     });
@@ -152,14 +152,29 @@ module.exports = async function handler(req, res) {
     let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
     // ══════════════════════════════════════════
-    // STEP 4: استبدال placeholder بالصورة
-    // الصورة المولدة بـ HF أو الأصلية كـ fallback
+    // STEP 4: حقن الصورة في الـ HTML
     // ══════════════════════════════════════════
     if (finalImgB64) {
-      html = html.replace(
-        'PRODUCT_IMAGE_BASE64',
-        `data:${finalImgType};base64,${finalImgB64}`
-      );
+      const imgDataUrl = `data:${finalImgType};base64,${finalImgB64}`;
+      const imgHtml = `<img src="${imgDataUrl}" alt="صورة المنتج" style="max-width:100%;width:420px;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:20px auto;">`;
+
+      // محاولة 1: استبدال placeholder
+      if (html.includes('PRODUCT_IMAGE_BASE64')) {
+        html = html.replace(/src="[^"]*PRODUCT_IMAGE_BASE64[^"]*"/g, `src="${imgDataUrl}"`);
+      }
+
+      // محاولة 2: إضافة الصورة بعد أول h1 أو h2 في الـ Hero
+      else if (!html.includes(imgDataUrl)) {
+        html = html.replace(
+          /(<\/h[12][^>]*>)/i,
+          `$1\n${imgHtml}`
+        );
+      }
+    }
+
+    // إضافة max_tokens fix — إذا الـ HTML مقطوع أضف إغلاق
+    if (!html.includes('</html>')) {
+      html += '\n</body></html>';
     }
 
     return res.status(200).json({
