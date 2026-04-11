@@ -59,7 +59,13 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({ error: 'Empty response from AI' });
     }
 
-    const html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
+    let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
+
+    // ✅ استبدال placeholder بالصورة الحقيقية
+    if (imgB64 && imgB64.length > 0) {
+      html = html.replace('PRODUCT_IMAGE_BASE64', imgB64);
+    }
+
     return res.status(200).json({ html });
 
   } catch (err) {
