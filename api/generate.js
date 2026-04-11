@@ -59,9 +59,7 @@ module.exports = async function handler(req, res) {
         // ══════════════════════════════════════════
         const imagePrompts = [
           `professional product photography of ${productDesc}, pure white background, studio lighting, sharp focus, centered, commercial quality, 4k`,
-          `${productDesc}, close up detail shot, showing texture and quality, soft background, professional macro photography`,
-          `${productDesc}, lifestyle shot, elegant real-world setting, natural lighting, beautiful composition`,
-          `${productDesc}, flat lay top view, minimalist white background, clean aesthetic, professional photography`
+          `${productDesc}, lifestyle shot, elegant real-world setting, natural lighting, beautiful composition`
         ];
 
         console.log('Generating 3 images...');
