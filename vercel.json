@@ -5,22 +5,15 @@
       "maxDuration": 60
     }
   },
+  "outputDirectory": "public",
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },
     {
-      "src": "/dashboard",
-      "dest": "/dashboard.html"
-    },
-    {
-      "src": "/dashboard.html",
-      "dest": "/dashboard.html"
-    },
-    {
-      "src": "/",
-      "dest": "/public/index.html"
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ]
 }
