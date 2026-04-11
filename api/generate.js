@@ -32,7 +32,9 @@ export default async function handler(req, res) {
     parts.push({ text: prompt });
 
     // ── Call Gemini API ──
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // Try gemini-2.0-flash-001 (stable), fallback name if needed
+    const model = 'gemini-1.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -49,8 +51,10 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Gemini API error:', response.status, errText);
+      // Return full details so you can see exactly what Google says
       return res.status(502).json({
         error: `Gemini API error: ${response.status}`,
+        model,
         details: errText,
       });
     }
