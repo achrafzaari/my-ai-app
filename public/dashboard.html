@@ -535,7 +535,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
     <button class="add-offer" onclick="addOffer()">+ إضافة عرض</button>
   </div>
 
-  <!-- 12b -->
+  <!-- 13 -->
   <div class="sec">
     <div class="sec-ttl"><span class="sec-num">13</span> خيارات إضافية</div>
     <div class="sec-sub">شحن مجاني، ضمان، مقاسات، ألوان، ملاحظات للـ AI...</div>
@@ -543,7 +543,7 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
     <div class="cc" id="cco">0/700</div>
   </div>
 
-  <!-- 13 اللون -->
+  <!-- 14 اللون -->
   <div class="sec">
     <div class="sec-ttl"><span class="sec-num">14</span> اللون</div>
     <div class="segs">
@@ -685,12 +685,9 @@ html,body{min-height:100%;font-family:'Cairo',sans-serif;background:var(--bg);co
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     FIREBASE + GEMINI AI LOGIC (MODULE)
+     FIREBASE + AI LOGIC
 ═══════════════════════════════════════════════════ -->
 <script type="module">
-// ════════════════════════════════════════════
-// 🔧 Firebase Config
-// ════════════════════════════════════════════
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyATySgmlFF1X2bhCeFDZAByslMrEjqDB_w",
   authDomain:        "foryoupage-c24e0.firebaseapp.com",
@@ -752,7 +749,10 @@ window.doLogout = async function() {
   window.location.href = 'index.html';
 };
 
-// ✅ GENERATE with AI (includes image base64)
+// ══════════════════════════════════════════════════════
+// ✅ FIX 2 + FIX 3: doGenerate reads imgB64/imgType
+//    and sends them in the fetch body
+// ══════════════════════════════════════════════════════
 window.doGenerate = async function() {
   closeOv('ov-confirm');
   const desc    = document.getElementById('product-desc').value.trim();
@@ -765,7 +765,7 @@ window.doGenerate = async function() {
   if (!isAdminUser && userData.balance < planPer) { toast('⚠️ رصيدك غير كافٍ'); return; }
   if (!desc) { toast('⚠️ أدخل وصف المنتج أولاً'); return; }
 
-  // Get image base64 from window (set by handleImg)
+  // ✅ FIX 2: Read saved image data from window globals
   const imgB64  = window._productImgB64 || null;
   const imgType = window._productImgType || 'image/jpeg';
 
@@ -830,6 +830,7 @@ ${notes}` : ''}
 - اللون الرئيسي: ${mainColor}
 ${priceEnabled && priceNow ? `- السعر الحالي: ${priceNow} ${currency}${priceOld ? ` (مشطوب: ${priceOld} ${currency})` : ''}` : '- لا تعرض أسعاراً'}
 ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
+${imgB64 ? '- صورة المنتج: مرفقة — استخدم وصفها في تحسين النصوص التسويقية' : ''}
 
 【المطلوب】
 اكتب صفحة هبوط HTML/CSS/JS كاملة ومتجاوبة تحتوي على:
@@ -845,6 +846,7 @@ ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
 أرجع فقط كود HTML كامل يبدأ بـ <!DOCTYPE html> بدون أي شرح.`;
 
   try {
+    // ✅ FIX 3: Send imgB64 and imgType in the request body
     const resp = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -869,18 +871,22 @@ ${offers.length ? `- العروض: ${offers.join('، ')}` : ''}
       createdAt: new Date().toISOString()
     };
 
-    if (!isAdminUser) {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        balance: increment(-planPer),
-        spent:   increment(planPer),
-        pages:   arrayUnion(pageObj)
-      });
-      userData.balance = (userData.balance || 0) - planPer;
-      userData.spent   = (userData.spent   || 0) + planPer;
-    } else {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
-        pages: arrayUnion(pageObj)
-      });
+    try {
+      if (!isAdminUser) {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          balance: increment(-planPer),
+          spent:   increment(planPer),
+          pages:   arrayUnion(pageObj)
+        });
+        userData.balance = (userData.balance || 0) - planPer;
+        userData.spent   = (userData.spent   || 0) + planPer;
+      } else {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          pages: arrayUnion(pageObj)
+        });
+      }
+    } catch(saveErr) {
+      console.warn('Firestore save error:', saveErr);
     }
     userData.pages = [pageObj, ...(userData.pages || [])];
 
@@ -965,7 +971,6 @@ window.refreshUI = refreshUI;
 </script>
 
 <script>
-// ─── Non-module JS (UI, translations, helpers) ───
 const PALETTE = ['#1bc47d','#e74c3c','#3498db','#9b59b6','#f39c12','#1abc9c','#e67e22','#2ecc71','#e91e63','#00bcd4','#ff5722','#607d8b','#795548','#4caf50','#ff9800','#673ab7','#2196f3','#009688','#ffc107','#ff6b6b'];
 const LANGS_CYCLE = ['EN','AR','FR'];
 window.selColor = '#1bc47d';
@@ -973,7 +978,7 @@ const BOT = {'شحن':'اذهب لـ "شحن الرصيد" واختر الباق
 
 const _savedLang = localStorage.getItem('fyp_lang');
 let li = _savedLang ? Math.max(0, LANGS_CYCLE.indexOf(_savedLang)) : 0;
-let offerCnt = 0;
+let offerCnt = 0, selColor = '#1bc47d';
 
 (function(){
   const p = document.getElementById('color-palette');
@@ -992,6 +997,7 @@ function goTab(name) {
 }
 
 function seg(btn){btn.closest('.segs').querySelectorAll('.sbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+
 function setBrand(btn,mode){seg(btn);document.getElementById('brand-panel').classList.toggle('on',mode==='brand');}
 function togglePrice(chk){document.getElementById('price-panel').classList.toggle('on',chk.checked);}
 function setCurr(btn,code,sym){btn.closest('.curr-row').querySelectorAll('.curr-btn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.getElementById('psym1').textContent=sym;document.getElementById('psym2').textContent=sym;}
@@ -999,27 +1005,31 @@ function setColorMode(btn,mode){seg(btn);document.getElementById('color-panel').
 function pickColor(el,c){document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');selColor=c;window.selColor=c;document.getElementById('custom-color').value=c;document.getElementById('color-hex').textContent=c;toast('🎨 '+c);}
 function customColorPick(v){selColor=v;window.selColor=v;document.getElementById('color-hex').textContent=v;document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));}
 
-// ✅ handleImg saves image as base64 in window for AI
+// ══════════════════════════════════════════════
+// ✅ FIX 1: handleImg now saves base64 to window
+// ══════════════════════════════════════════════
 function handleImg(inp){
   const f=inp.files[0];
-  if(!f) return;
+  if(!f)return;
   const url=URL.createObjectURL(f);
   const box=document.getElementById('upbox');
   box.classList.add('on');
   box.querySelector('.up-info h4').textContent=f.name.slice(0,22)+'…';
   box.querySelector('.up-info p').textContent='✓ تم الرفع';
   document.getElementById('up-ico').innerHTML=`<img class="up-prev" src="${url}"/>`;
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    window._productImgB64 = e.target.result.split(',')[1];
-    window._productImgType = f.type;
+  // ✅ Read file as base64 and save to window globals
+  const reader=new FileReader();
+  reader.onload=e=>{
+    window._productImgB64=e.target.result.split(',')[1];
+    window._productImgType=f.type;
+    toast('🖼️ تم رفع الصورة وحفظها');
   };
   reader.readAsDataURL(f);
 }
 
 function handleLogo(inp){const f=inp.files[0];if(!f)return;const url=URL.createObjectURL(f);const box=document.getElementById('logo-box');box.classList.add('on');box.querySelector('.up-info h4').textContent='✓ '+f.name.slice(0,18);document.getElementById('logo-ico').innerHTML=`<img class="up-prev" src="${url}" style="width:44px;height:44px;object-fit:contain;"/>`;toast('✅ تم رفع الشعار!');}
 function ccnt(el,id,max){document.getElementById(id).textContent=el.value.length+'/'+max;}
+
 function addOffer(){
   offerCnt++;
   const id='off-'+offerCnt;
@@ -1034,11 +1044,166 @@ function addOffer(){
   l.appendChild(d);
 }
 
-const I18N = { /* ... نفس الكائن السابق ... */ };
-I18N.AR = { /* ... محتوى عربي ... */ };
-I18N.EN = { /* ... محتوى إنجليزي ... */ };
-I18N.FR = { /* ... محتوى فرنسي ... */ };
-// (تم حذف التفاصيل الطويلة للاختصار، لكنها موجودة في الكود الأصلي)
+const I18N = {
+  AR:{dir:'rtl',lang:'ar',
+    'promo-txt':'ابدأ بـ <strong>رصيد مجاني</strong> لإنشاء أول صفحة هبوط بالذكاء الاصطناعي — <strong>الذكاء الاصطناعي</strong>',
+    'promo-btn':'احصل على الرصيد ←',
+    'bal-sub':'رصيدك',
+    'tab0':'⚙️ إعدادات البناء','tab1':'📄 صفحاتي','tab2':'💳 شحن','tab3':'📊 إحصائيات',
+    'tool0-title':'إعدادات البناء','tool1-title':'صفحاتي','tool2-title':'شحن الرصيد','tool3-title':'إحصائيات',
+    'bc-head-title':' إعدادات البناء','gemini-status':'● AI متصل',
+    's1-ttl':'رفع صورة المنتج','s1-sub':'JPG, PNG — 5MB كحد أقصى (اختياري)',
+    's2-ttl':'اللغة واللهجة',
+    's3-ttl':'الدولة المستهدفة','s3-sub':'يؤثر على الشخصيات والسياق الثقافي والعملة.',
+    's4-ttl':'BRAND','s4-sub':'فعّل وضع العلامة لإضافة اسم وشعار علامتك التجارية.',
+    's4-b1':'المنتج الافتراضي','s4-b2':'وضع العلامة',
+    's5-ttl':'طول صفحة الهبوط',
+    's6-ttl':'دقة صفحة الهبوط','s6-sub':'كلما زادت الدقة، زادت جودة النص والتصميم.',
+    's6-note':'مستحسن',
+    's7-ttl':'الزاوية التسويقية','s7-sub':'يغيّر أسلوب الإقناع فقط (الفوائد، الثقة، الندرة...).',
+    's8-ttl':'فورم الطلب','s8-sub':'سيظهر افتراضياً أسفل الـ hero ويمكنك تغيير مكانه لاحقاً.',
+    's9-ttl':'نمط التصميم',
+    's10-ttl':'CTA (اطلب الآن)','s10-note':'أزرار HTML حقيقية تنقل الزائر مباشرة للنموذج.',
+    's11-ttl':'سعر المنتج','s11-sub':'فعّلها لإظهار السعر الحالي والسعر المشطوب في الصفحة.',
+    's11-tog':'تفعيل سعر المنتج',
+    's12-ttl':'عروض المنتج (HERO)','s12-sub':'عروض ترويجية تظهر في القسم الأول فقط.',
+    'add-offer':'+ إضافة عرض',
+    's12b-ttl':'خيارات إضافية','s12b-sub':'شحن مجاني، ضمان، مقاسات، ألوان، ملاحظات للـ AI...',
+    's12b-ph':'مثال: متوفر بـ 3 ألوان + مقاسين M/L + شحن مجاني + دفع عند الاستلام',
+    's13-ttl':'اللون',
+    'sprod-ttl':'اسم/وصف المنتج','sprod-req':'مطلوب للـ AI','sprod-sub':'صف منتجك باختصار حتى يفهم الذكاء الاصطناعي ما سيكتبه.',
+    'sprod-ph':'مثال: حذاء رياضي خفيف للركض، مقاومة الماء، مريح جداً، مناسب للرجال والنساء، متوفر بـ 5 ألوان...',
+    'cost-lbl':'تكلفة الإنشاء بالذكاء الاصطناعي',
+    'gen-btn-txt':'ولّد صفحة الهبوط بالذكاء الاصطناعي',
+    'hist-title':'📄 صفحاتي','hist-new':'+ جديد','search-ph':'بحث...',
+    'empty-txt':'لا توجد صفحات بعد','empty-btn':'ابدأ الآن',
+    'price-h2':'💳 شحن الرصيد','price-sub':'ادفع مرة واحدة واستخدم رصيدك — بالدولار الأمريكي',
+    'stats-h':'📊 إحصائياتك',
+    'st-bal-l':'الرصيد الحالي','st-bal-s':'بالدولار الأمريكي',
+    'st-pgs-l':'الصفحات المنشأة','st-pgs-s':'إجمالي الصفحات',
+    'st-sp-l':'المبلغ المصروف','st-sp-s':'من أول استخدام',
+    'st-pl-l':'الخطة النشطة','st-pl-s-def':'لا توجد خطة',
+    'ov-conf-title':'تأكيد الإنشاء بالذكاء الاصطناعي',
+    'ov-conf-p':'سيتم إرسال بيانات المنتج للذكاء الاصطناعي لإنشاء صفحة الهبوط وخصم التكلفة من رصيدك.',
+    'ov-cancel':'إلغاء','ov-ok':'تأكيد ✓',
+    'ov-suc-title':'تم الشحن بنجاح!',
+    'ov-suc-p':'تمت إضافة الرصيد لحسابك. يمكنك الآن إنشاء صفحات هبوط بالذكاء الاصطناعي.',
+    'ov-suc-btn':'ابدأ الإنشاء ✨',
+    'gen-ttl':'🤖 الذكاء الاصطناعي يكتب صفحتك...','gen-sb':'يرجى الانتظار — هذا يستغرق 15-40 ثانية',
+    'gs1':'تحليل بيانات المنتج','gs2':'كتابة النصوص التسويقية','gs3':'بناء هيكل الصفحة','gs4':'تطبيق التصميم والألوان','gs5':'المراجعة والإنهاء',
+    'cb-name':'مساعد ForYouPage','cb-stat':'● AI متصل',
+    'cb-ph':'اكتب سؤالك...',
+    'pay-h3':'💳 إتمام الدفع','pay-btn':'🔒 ادفع الآن','pay-cancel':'إلغاء ←',
+    'stripe-note':'🔒 مدعوم بـ Stripe — دفع آمن ومشفر',
+    'user-menu-stat':'📊 إحصائياتي','user-menu-pay':'💳 شحن الرصيد','user-menu-logout':'🚪 تسجيل الخروج',
+    'sl-lang-opts':[
+      {v:'ar',t:'العربية الفصحى'},{v:'ar-ma',t:'المغربية الدارجة'},{v:'ar-dz',t:'الجزائرية'},
+      {v:'ar-tn',t:'التونسية'},{v:'en',t:'الإنجليزية'},{v:'fr',t:'الفرنسية'}
+    ],
+    'sl-country-opts':['المغرب','السعودية','الإمارات','مصر','الجزائر','تونس','فرنسا','أمريكا'],
+    'lbl-currency':'العملة','lbl-brand-name':'اسم العلامة التجارية','lbl-brand-logo':'شعار العلامة (Logo)',
+    'lbl-price-now':'السعر الحالي','lbl-price-old':'السعر المشطوب','lbl-color-custom':'لون مخصص',
+    'lbl-brand-ph':'مثال: Nike، Zara...','logo-box-h4':'رفع الشعار','logo-box-p':'PNG شفاف مفضل',
+    'up-info-h4':'رفع صورة المنتج','up-info-p':'JPG, PNG — 5MB كحد أقصى',
+    'price-tip':'💡 السعر المشطوب يظهر بخط أحمر لإبراز التخفيض',
+    'offer-ph':'مثال: اشترِ 2 واحصل على 1 مجاناً','offer-del-toast':'تم حذف العرض',
+    'cb-welcome':'مرحباً 👋 أنا مساعدك المدعوم بالذكاء الاصطناعي. كيف يمكنني مساعدتك؟'
+  },
+  EN:{dir:'ltr',lang:'en',
+    'promo-txt':'Start with <strong>free credit</strong> to create your first AI landing page — <strong>الذكاء الاصطناعي</strong>',
+    'promo-btn':'Get Credits →','bal-sub':'Balance',
+    'tab0':'⚙️ Builder','tab1':'📄 My Pages','tab2':'💳 Recharge','tab3':'📊 Stats',
+    'tool0-title':'Builder','tool1-title':'My Pages','tool2-title':'Recharge','tool3-title':'Stats',
+    'bc-head-title':' Builder Settings','gemini-status':'● AI Connected',
+    's1-ttl':'Upload Product Image','s1-sub':'JPG, PNG — Max 5MB (optional)',
+    's2-ttl':'Language & Dialect','s3-ttl':'Target Country','s3-sub':'Affects personas, cultural context, and currency.',
+    's4-ttl':'BRAND','s4-sub':'Enable brand mode to add your brand name and logo.',
+    's4-b1':'Default Product','s4-b2':'Brand Mode','s5-ttl':'Landing Page Length',
+    's6-ttl':'Landing Page Quality','s6-sub':'Higher quality = better text and design.','s6-note':'Recommended',
+    's7-ttl':'Marketing Angle','s7-sub':'Changes persuasion style only (benefits, trust, scarcity...).',
+    's8-ttl':'Order Form','s8-sub':'Appears below the hero section by default.',
+    's9-ttl':'Design Style','s10-ttl':'CTA (Order Now)','s10-note':'Real HTML buttons that direct visitors to the form.',
+    's11-ttl':'Product Price','s11-sub':'Enable to show current price and crossed-out price.','s11-tog':'Enable Product Price',
+    's12-ttl':'Product Offers (HERO)','s12-sub':'Promotional offers shown in the first section only.',
+    'add-offer':'+ Add Offer','s12b-ttl':'Extra Options','s12b-sub':'Free shipping, warranty, sizes, colors, AI notes...',
+    's12b-ph':'Example: Available in 3 colors + sizes M/L + free shipping + cash on delivery','s13-ttl':'Color',
+    'sprod-ttl':'Product Name/Description','sprod-req':'Required for AI','sprod-sub':'Describe your product briefly so the AI knows what to write.',
+    'sprod-ph':'Example: Lightweight running shoe, waterproof, very comfortable, for men and women, available in 5 colors...',
+    'cost-lbl':'Generation cost with AI','gen-btn-txt':'Generate Landing Page with AI',
+    'hist-title':'📄 My Pages','hist-new':'+ New','search-ph':'Search...',
+    'empty-txt':'No pages yet','empty-btn':'Start Now',
+    'price-h2':'💳 Recharge Balance','price-sub':'Pay once and use your credits — in USD',
+    'stats-h':'📊 Your Stats','st-bal-l':'Current Balance','st-bal-s':'In US Dollars',
+    'st-pgs-l':'Pages Created','st-pgs-s':'Total pages','st-sp-l':'Amount Spent','st-sp-s':'Since first use',
+    'st-pl-l':'Active Plan','st-pl-s-def':'No plan',
+    'ov-conf-title':'Confirm AI Generation',
+    'ov-conf-p':'Product data will be sent to the AI to create the landing page and deduct the cost from your balance.',
+    'ov-cancel':'Cancel','ov-ok':'Confirm ✓','ov-suc-title':'Recharge Successful!',
+    'ov-suc-p':'Your balance has been added. You can now create AI landing pages.','ov-suc-btn':'Start Creating ✨',
+    'gen-ttl':'🤖 AI is writing your page...','gen-sb':'Please wait — this takes 15–40 seconds',
+    'gs1':'Analyzing product data','gs2':'Writing marketing copy','gs3':'Building page structure','gs4':'Applying design & colors','gs5':'Review & finalization',
+    'cb-name':'ForYouPage Assistant','cb-stat':'● AI Connected','cb-ph':'Type your question...',
+    'pay-h3':'💳 Complete Payment','pay-btn':'🔒 Pay Now','pay-cancel':'Cancel ←',
+    'stripe-note':'🔒 Powered by Stripe — Secure & Encrypted',
+    'user-menu-stat':'📊 My Stats','user-menu-pay':'💳 Recharge','user-menu-logout':'🚪 Sign Out',
+    'sl-lang-opts':[{v:'ar',t:'Modern Arabic'},{v:'ar-ma',t:'Moroccan Darija'},{v:'ar-dz',t:'Algerian'},{v:'ar-tn',t:'Tunisian'},{v:'en',t:'English'},{v:'fr',t:'French'}],
+    'sl-country-opts':['Morocco','Saudi Arabia','UAE','Egypt','Algeria','Tunisia','France','USA'],
+    'lbl-currency':'Currency','lbl-brand-name':'Brand Name','lbl-brand-logo':'Brand Logo',
+    'lbl-price-now':'Current Price','lbl-price-old':'Crossed-out Price','lbl-color-custom':'Custom color',
+    'lbl-brand-ph':'e.g. Nike, Zara...','logo-box-h4':'Upload Logo','logo-box-p':'Transparent PNG preferred',
+    'up-info-h4':'Upload Product Image','up-info-p':'JPG, PNG — Max 5MB',
+    'price-tip':'💡 Crossed-out price shown in red to highlight discount',
+    'offer-ph':'e.g. Buy 2 Get 1 Free','offer-del-toast':'Offer removed',
+    'cb-welcome':'Hello 👋 I am your AI-powered assistant. How can I help you?'
+  },
+  FR:{dir:'ltr',lang:'fr',
+    'promo-txt':'Commencez avec un <strong>crédit gratuit</strong> pour créer votre première page — <strong>الذكاء الاصطناعي</strong>',
+    'promo-btn':'Obtenir des crédits →','bal-sub':'Solde',
+    'tab0':'⚙️ Constructeur','tab1':'📄 Mes Pages','tab2':'💳 Recharger','tab3':'📊 Statistiques',
+    'tool0-title':'Constructeur','tool1-title':'Mes Pages','tool2-title':'Recharger','tool3-title':'Statistiques',
+    'bc-head-title':' Paramètres du constructeur','gemini-status':'● IA Connectée',
+    's1-ttl':'Télécharger l\'image','s1-sub':'JPG, PNG — 5MB max (optionnel)',
+    's2-ttl':'Langue & Dialecte','s3-ttl':'Pays cible','s3-sub':'Affecte les personnages, le contexte culturel et la devise.',
+    's4-ttl':'MARQUE','s4-sub':'Activez le mode marque pour ajouter nom et logo.',
+    's4-b1':'Produit par défaut','s4-b2':'Mode Marque','s5-ttl':'Longueur de la page',
+    's6-ttl':'Qualité de la page','s6-sub':'Plus la qualité est élevée, meilleurs sont les textes.','s6-note':'Recommandé',
+    's7-ttl':'Angle marketing','s7-sub':'Change le style de persuasion uniquement.',
+    's8-ttl':'Formulaire de commande','s8-sub':'Apparaît sous la section hero par défaut.',
+    's9-ttl':'Style de design','s10-ttl':'CTA (Commander)','s10-note':'Vrais boutons HTML qui dirigent les visiteurs vers le formulaire.',
+    's11-ttl':'Prix du produit','s11-sub':'Activer pour afficher le prix actuel et le prix barré.','s11-tog':'Activer le prix',
+    's12-ttl':'Offres produit (HERO)','s12-sub':'Offres promotionnelles dans la première section.',
+    'add-offer':'+ Ajouter une offre','s12b-ttl':'Options supplémentaires','s12b-sub':'Livraison gratuite, garantie, tailles, couleurs...',
+    's12b-ph':'Exemple: Disponible en 3 couleurs + tailles M/L + livraison gratuite','s13-ttl':'Couleur',
+    'sprod-ttl':'Nom/Description du produit','sprod-req':'Requis pour l\'IA','sprod-sub':'Décrivez votre produit brièvement pour l\'IA.',
+    'sprod-ph':'Exemple: Chaussure de course légère, imperméable, très confortable...',
+    'cost-lbl':'Coût de génération IA','gen-btn-txt':'Générer la page avec l\'IA',
+    'hist-title':'📄 Mes Pages','hist-new':'+ Nouveau','search-ph':'Rechercher...',
+    'empty-txt':'Aucune page pour l\'instant','empty-btn':'Commencer',
+    'price-h2':'💳 Recharger le solde','price-sub':'Payez une fois et utilisez votre solde — en USD',
+    'stats-h':'📊 Vos Statistiques','st-bal-l':'Solde actuel','st-bal-s':'En dollars américains',
+    'st-pgs-l':'Pages créées','st-pgs-s':'Total des pages','st-sp-l':'Montant dépensé','st-sp-s':'Depuis la première utilisation',
+    'st-pl-l':'Plan actif','st-pl-s-def':'Aucun plan',
+    'ov-conf-title':'Confirmer la génération IA',
+    'ov-conf-p':'Les données seront envoyées à l\'IA pour créer la page et déduire le coût de votre solde.',
+    'ov-cancel':'Annuler','ov-ok':'Confirmer ✓','ov-suc-title':'Rechargement réussi!',
+    'ov-suc-p':'Votre solde a été ajouté. Vous pouvez créer des pages IA maintenant.','ov-suc-btn':'Commencer à créer ✨',
+    'gen-ttl':'🤖 L\'IA écrit votre page...','gen-sb':'Veuillez patienter — cela prend 15 à 40 secondes',
+    'gs1':'Analyse des données produit','gs2':'Rédaction des textes marketing','gs3':'Construction de la structure','gs4':'Application du design et couleurs','gs5':'Révision et finalisation',
+    'cb-name':'Assistant ForYouPage','cb-stat':'● IA Connectée','cb-ph':'Tapez votre question...',
+    'pay-h3':'💳 Finaliser le paiement','pay-btn':'🔒 Payer Maintenant','pay-cancel':'Annuler ←',
+    'stripe-note':'🔒 Propulsé par Stripe — Paiement sécurisé',
+    'user-menu-stat':'📊 Mes Stats','user-menu-pay':'💳 Recharger','user-menu-logout':'🚪 Déconnexion',
+    'sl-lang-opts':[{v:'ar',t:'Arabe classique'},{v:'ar-ma',t:'Darija Marocaine'},{v:'ar-dz',t:'Algérien'},{v:'ar-tn',t:'Tunisien'},{v:'en',t:'Anglais'},{v:'fr',t:'Français'}],
+    'sl-country-opts':['Maroc','Arabie Saoudite','Émirats','Égypte','Algérie','Tunisie','France','USA'],
+    'lbl-currency':'Devise','lbl-brand-name':'Nom de la marque','lbl-brand-logo':'Logo de la marque',
+    'lbl-price-now':'Prix actuel','lbl-price-old':'Prix barré','lbl-color-custom':'Couleur personnalisée',
+    'lbl-brand-ph':'ex: Nike, Zara...','logo-box-h4':'Télécharger le logo','logo-box-p':'PNG transparent préféré',
+    'up-info-h4':'Télécharger l\'image','up-info-p':'JPG, PNG — 5MB max',
+    'price-tip':'💡 Le prix barré apparaît en rouge pour mettre en valeur la remise',
+    'offer-ph':'ex: Achetez 2, obtenez 1 gratuit','offer-del-toast':'Offre supprimée',
+    'cb-welcome':'Bonjour 👋 Je suis votre assistant IA. Comment puis-je vous aider?'
+  }
+};
 
 function t(k){return (I18N[LANGS_CYCLE[li]]||I18N.AR)[k]||'';}
 function setText(id,val){const el=document.getElementById(id);if(el&&val!==undefined)el.textContent=val;}
@@ -1056,18 +1221,83 @@ function applyTranslations(){
   const promBtn=document.querySelector('.promo-btn');if(promBtn)promBtn.textContent=tr['promo-btn'];
   const balSub=document.querySelector('.bal-sub');if(balSub)balSub.textContent=tr['bal-sub'];
   const tabs=document.querySelectorAll('.tab');
-  tabs.forEach((tab,i)=>{
-    const cnt=tab.querySelector('.tab-badge');
-    tab.textContent=tr['tab'+i]||tab.textContent;
-    if(cnt){tab.appendChild(cnt);}
-  });
+  tabs.forEach((tab,i)=>{const cnt=tab.querySelector('.tab-badge');tab.textContent=tr['tab'+i]||tab.textContent;if(cnt){tab.appendChild(cnt);}});
   const tools=[document.getElementById('t-builder'),document.getElementById('t-history'),document.getElementById('t-pricing'),document.getElementById('t-stats')];
   tools.forEach((tool,i)=>{if(tool)tool.title=tr['tool'+i+'-title']||tool.title;});
   const bcTitle=document.querySelector('.bc-title');
   if(bcTitle){const dot=bcTitle.querySelector('.dot-live');bcTitle.textContent=tr['bc-head-title'];if(dot)bcTitle.prepend(dot);}
   setText('gemini-status',tr['gemini-status']);
-  // ... rest of applyTranslations (اختصاراً)
+  function secByNum(num){return [...document.querySelectorAll('.sec')].find(s=>s.querySelector('.sec-num')?.textContent===String(num));}
+  const s1=secByNum(1);if(s1){const ttl=s1.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s1-ttl'];if(n)ttl.prepend(n);}const sub=s1.querySelector('.sec-sub');if(sub)sub.textContent=tr['s1-sub'];}
+  const s2=secByNum(2);if(s2){const ttl=s2.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s2-ttl'];if(n)ttl.prepend(n);}}
+  const s3=secByNum(3);if(s3){const ttl=s3.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s3-ttl'];if(n)ttl.prepend(n);}const sub=s3.querySelector('.sec-sub');if(sub)sub.textContent=tr['s3-sub'];}
+  const s4=secByNum(4);if(s4){const ttl=s4.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');const nt=ttl.querySelector('.new-tag');ttl.textContent=tr['s4-ttl'];if(n)ttl.prepend(n);if(nt)ttl.appendChild(nt);}const sub=s4.querySelector('.sec-sub');if(sub)sub.textContent=tr['s4-sub'];const btns=s4.querySelectorAll('.sbtn');if(btns[0])btns[0].textContent=tr['s4-b1'];if(btns[1])btns[1].textContent=tr['s4-b2'];}
+  const s5=secByNum(5);if(s5){const ttl=s5.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s5-ttl'];if(n)ttl.prepend(n);}}
+  const s6=secByNum(6);if(s6){const ttl=s6.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s6-ttl'];if(n)ttl.prepend(n);}const sub=s6.querySelector('.sec-sub');if(sub)sub.textContent=tr['s6-sub'];const note=s6.querySelector('.seg-tag');if(note)note.textContent=tr['s6-note'];}
+  const s7=secByNum(7);if(s7){const ttl=s7.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');const nt=ttl.querySelector('.new-tag');ttl.textContent=tr['s7-ttl'];if(n)ttl.prepend(n);if(nt)ttl.appendChild(nt);}const sub=s7.querySelector('.sec-sub');if(sub)sub.textContent=tr['s7-sub'];}
+  const s8=secByNum(8);if(s8){const ttl=s8.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s8-ttl'];if(n)ttl.prepend(n);}const sub=s8.querySelector('.sec-sub');if(sub)sub.textContent=tr['s8-sub'];}
+  const s9=secByNum(9);if(s9){const ttl=s9.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s9-ttl'];if(n)ttl.prepend(n);}}
+  const s10=secByNum(10);if(s10){const ttl=s10.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s10-ttl'];if(n)ttl.prepend(n);}const note=s10.querySelector('.seg-note');if(note)note.textContent=tr['s10-note'];}
+  const s11=secByNum(11);if(s11){const ttl=s11.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s11-ttl'];if(n)ttl.prepend(n);}const sub=s11.querySelector('.sec-sub');if(sub)sub.textContent=tr['s11-sub'];const tog=s11.querySelector('.ttl');if(tog)tog.textContent=tr['s11-tog'];}
+  const allSecs=document.querySelectorAll('.sec');
+  allSecs.forEach(s=>{
+    const ttl=s.querySelector('.sec-ttl');if(!ttl)return;
+    const rawTxt=ttl.textContent.trim();
+    if(rawTxt.includes('عروض المنتج')||rawTxt.includes('Product Offers')||rawTxt.includes('Offres produit')){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s12-ttl'];if(n)ttl.prepend(n);const sub=s.querySelector('.sec-sub');if(sub)sub.textContent=tr['s12-sub'];const addBtn=s.querySelector('.add-offer');if(addBtn)addBtn.textContent=tr['add-offer'];}
+    if(rawTxt.includes('خيارات إضافية')||rawTxt.includes('Extra Options')||rawTxt.includes('Options')){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s12b-ttl'];if(n)ttl.prepend(n);const sub=s.querySelector('.sec-sub');if(sub)sub.textContent=tr['s12b-sub'];const txt=s.querySelector('.ctxt');if(txt)txt.placeholder=tr['s12b-ph'];}
+    if(rawTxt.includes('اللون')||rawTxt.includes('Color')||rawTxt.includes('Couleur')){const n=ttl.querySelector('.sec-num');ttl.textContent=tr['s13-ttl'];if(n)ttl.prepend(n);}
+  });
+  const starSec=[...document.querySelectorAll('.sec')].find(s=>s.querySelector('.sec-num')?.textContent==='★');
+  if(starSec){const ttl=starSec.querySelector('.sec-ttl');if(ttl){const n=ttl.querySelector('.sec-num');const req=ttl.querySelector('span[style]');ttl.textContent=tr['sprod-ttl'];if(n)ttl.prepend(n);if(req){req.textContent=tr['sprod-req'];ttl.appendChild(req);}}const sub=starSec.querySelector('.sec-sub');if(sub)sub.textContent=tr['sprod-sub'];const txt=starSec.querySelector('.ctxt');if(txt)txt.placeholder=tr['sprod-ph'];}
+  const costLbl=document.querySelector('.cost-lbl');if(costLbl)costLbl.textContent=tr['cost-lbl'];
+  const genBtn=document.getElementById('gbtn');if(genBtn){const svg=genBtn.querySelector('svg');genBtn.textContent=tr['gen-btn-txt'];if(svg)genBtn.prepend(svg);}
+  const histH=document.querySelector('#pg-history .hist-head h3');if(histH)histH.textContent=tr['hist-title'];
+  const histNew=document.querySelector('#pg-history .gen-btn');if(histNew)histNew.textContent=tr['hist-new'];
+  const srchInp=document.querySelector('.srch input');if(srchInp)srchInp.placeholder=tr['search-ph'];
+  const priceH2=document.querySelector('#pg-pricing .price-hd h2');if(priceH2)priceH2.textContent=tr['price-h2'];
+  const priceSub=document.querySelector('#pg-pricing .price-hd p');if(priceSub)priceSub.textContent=tr['price-sub'];
+  const payH3=document.querySelector('.pay-form h3');if(payH3)payH3.textContent=tr['pay-h3'];
+  const payBtn=document.getElementById('pay-btn');if(payBtn)payBtn.textContent=tr['pay-btn'];
+  const payCancel=document.querySelector('.cancel-link');if(payCancel)payCancel.textContent=tr['pay-cancel'];
+  const stripeNote=document.querySelector('.stripe-note');if(stripeNote)stripeNote.textContent=tr['stripe-note'];
+  const statsH=document.querySelector('#pg-stats > .wrap > div');if(statsH)statsH.textContent=tr['stats-h'];
+  const stCards=document.querySelectorAll('.sc');
+  if(stCards[0]){stCards[0].querySelector('.sl').textContent=tr['st-bal-l'];stCards[0].querySelector('.ss').textContent=tr['st-bal-s'];}
+  if(stCards[1]){stCards[1].querySelector('.sl').textContent=tr['st-pgs-l'];stCards[1].querySelector('.ss').textContent=tr['st-pgs-s'];}
+  if(stCards[2]){stCards[2].querySelector('.sl').textContent=tr['st-sp-l'];stCards[2].querySelector('.ss').textContent=tr['st-sp-s'];}
+  if(stCards[3]){stCards[3].querySelector('.sl').textContent=tr['st-pl-l'];const ss=stCards[3].querySelector('#st-pl-s');if(ss&&(ss.textContent==='لا توجد خطة'||ss.textContent==='No plan'||ss.textContent==='Aucun plan'))ss.textContent=tr['st-pl-s-def'];}
+  const confTitle=document.querySelector('#ov-confirm h3');if(confTitle)confTitle.textContent=tr['ov-conf-title'];
+  const confP=document.querySelector('#ov-confirm p');if(confP)confP.textContent=tr['ov-conf-p'];
+  const confCancel=document.querySelector('#ov-confirm .m-cancel');if(confCancel)confCancel.textContent=tr['ov-cancel'];
+  const confOk=document.querySelector('#ov-confirm .m-ok');if(confOk)confOk.textContent=tr['ov-ok'];
+  const sucTitle=document.querySelector('#ov-success h3');if(sucTitle)sucTitle.textContent=tr['ov-suc-title'];
+  const sucP=document.querySelector('#ov-success p');if(sucP)sucP.textContent=tr['ov-suc-p'];
+  const sucBtn=document.querySelector('#ov-success .m-ok');if(sucBtn)sucBtn.textContent=tr['ov-suc-btn'];
+  const genTtl=document.querySelector('.gen-ttl');if(genTtl)genTtl.textContent=tr['gen-ttl'];
+  const genSb=document.querySelector('.gen-sb');if(genSb)genSb.textContent=tr['gen-sb'];
+  const gsEls=document.querySelectorAll('.gs');
+  const gsKeys=['gs1','gs2','gs3','gs4','gs5'];
+  gsEls.forEach((el,i)=>{const ic=el.querySelector('.gs-ic');el.textContent=tr[gsKeys[i]]||el.textContent;if(ic)el.prepend(ic);});
+  const cbName=document.querySelector('.cb-name');if(cbName)cbName.textContent=tr['cb-name'];
+  const cbStat=document.querySelector('.cb-stat');if(cbStat)cbStat.textContent=tr['cb-stat'];
+  const cbInp=document.getElementById('cb-inp');if(cbInp)cbInp.placeholder=tr['cb-ph'];
+  const umLinks=document.querySelectorAll('.user-menu a');
+  if(umLinks[0])umLinks[0].textContent=tr['user-menu-stat'];
+  if(umLinks[1])umLinks[1].textContent=tr['user-menu-pay'];
+  if(umLinks[2])umLinks[2].textContent=tr['user-menu-logout'];
+  const slLang=document.getElementById('sl-lang');
+  if(slLang&&tr['sl-lang-opts']){const cur=slLang.value;slLang.innerHTML=tr['sl-lang-opts'].map(o=>`<option value="${o.v}"${o.v===cur?' selected':''}>${o.t}</option>`).join('');}
+  const slCountry=document.getElementById('sl-country');
+  if(slCountry&&tr['sl-country-opts']){const ci=slCountry.selectedIndex;const savIdx=ci>=0?ci:0;slCountry.innerHTML=tr['sl-country-opts'].map((c,i)=>`<option${i===savIdx?' selected':''}>${c}</option>`).join('');}
+  if(s4){const brandLbl=s4.querySelector('.inp-lbl');if(brandLbl)brandLbl.textContent=tr['lbl-brand-name'];const brandInp=document.getElementById('brand-name');if(brandInp)brandInp.placeholder=tr['lbl-brand-ph']||brandInp.placeholder;const lbls=s4.querySelectorAll('.inp-lbl');if(lbls[1])lbls[1].textContent=tr['lbl-brand-logo'];const lbH4=document.querySelector('#logo-box .up-info h4');if(lbH4)lbH4.textContent=tr['logo-box-h4'];const lbP=document.querySelector('#logo-box .up-info p');if(lbP)lbP.textContent=tr['logo-box-p'];}
+  const upH4=document.querySelector('#upbox .up-info h4');if(upH4&&!upH4.textContent.includes('✓'))upH4.textContent=tr['up-info-h4'];
+  const upP=document.querySelector('#upbox .up-info p');if(upP&&!upP.textContent.includes('✓'))upP.textContent=tr['up-info-p'];
+  if(s11){const lbls=s11.querySelectorAll('.inp-lbl');if(lbls[1])lbls[1].textContent=tr['lbl-price-now']||lbls[1].textContent;if(lbls[2])lbls[2].textContent=tr['lbl-price-old']||lbls[2].textContent;const tip=s11.querySelector('[style*="color:var(--muted)"]');if(tip&&tr['price-tip'])tip.textContent=tr['price-tip'];const currLbl=s11.querySelector('.inp-lbl');if(currLbl)currLbl.textContent=tr['lbl-currency']||currLbl.textContent;}
+  const customLbl=document.querySelector('.color-custom-row span');if(customLbl)customLbl.textContent=tr['lbl-color-custom']||customLbl.textContent;
+  document.querySelectorAll('#offers-list .cinp').forEach(inp=>{inp.placeholder=tr['offer-ph']||inp.placeholder;});
+  window._offerPh=tr['offer-ph'];
 }
+
 function cycleLang(){
   li=(li+1)%3;
   localStorage.setItem('fyp_lang', LANGS_CYCLE[li]);
@@ -1075,6 +1305,7 @@ function cycleLang(){
   applyTranslations();
   toast('🌐 '+LANGS_CYCLE[li]);
 }
+
 function confirmGen(){
   const desc=document.getElementById('product-desc').value.trim();
   const tr=I18N[LANGS_CYCLE[li]]||I18N.AR;
@@ -1082,6 +1313,7 @@ function confirmGen(){
   if(!desc){toast(warn);document.getElementById('product-desc').focus();return;}
   document.getElementById('ov-confirm').classList.add('on');
 }
+
 function renderPages(filter=''){
   const pages=(window.userData?.pages||[]).filter(p=>!filter||p.name.includes(filter));
   const g=document.getElementById('pages-g');
@@ -1097,9 +1329,9 @@ function renderPages(filter=''){
     return;
   }
   g.innerHTML=pages.slice(0,20).map(p=>{
-    const pid = p.id;
-    const hasHtml = !!p.html;
-    const emoji = EMOJIS[Math.floor(Math.random()*EMOJIS.length)];
+    const pid=p.id;
+    const hasHtml=!!p.html;
+    const emoji=EMOJIS[Math.floor(Math.random()*EMOJIS.length)];
     return `<div class="pc">
       <div class="pc-thumb"><span>${emoji}</span><div class="pc-badge">${badgeTxt}</div></div>
       <div class="pc-body">
@@ -1113,8 +1345,10 @@ function renderPages(filter=''){
     </div>`;
   }).join('');
 }
-window.renderPages = renderPages;
+window.renderPages=renderPages;
 function filterPg(v){renderPages(v);}
+
+function selPlan(amt,per,name,pgs){const f=document.getElementById('pay-form');f.classList.remove('hid');document.getElementById('py-nm').textContent=name;document.getElementById('py-sb').textContent='$'+per.toFixed(2)+' / صفحة — '+pgs;document.getElementById('py-pr').textContent='$'+amt;f._a=amt;f._p=per;f._n=name;setTimeout(()=>f.scrollIntoView({behavior:'smooth'}),100);}
 function fmtCard(i){let v=i.value.replace(/\D/g,'').slice(0,16);i.value=v.replace(/(.{4})/g,'$1 ').trim();}
 function fmtExp(i){let v=i.value.replace(/\D/g,'').slice(0,4);if(v.length>=3)v=v.slice(0,2)+'/'+v.slice(2);i.value=v;}
 function closeOv(id){document.getElementById(id).classList.remove('on');}
@@ -1122,7 +1356,7 @@ function toggleChat(){document.getElementById('cb-panel').classList.toggle('on')
 function sendMsg(){const inp=document.getElementById('cb-inp');const msg=inp.value.trim();if(!msg)return;const body=document.getElementById('cb-msgs');body.innerHTML+=`<div class="bub user">${msg}</div>`;inp.value='';body.scrollTop=body.scrollHeight;let r='شكراً! اسألني عن الشحن، الإعدادات، أو الذكاء الاصطناعي.';for(const k in BOT){if(msg.includes(k)){r=BOT[k];break;}}setTimeout(()=>{body.innerHTML+=`<div class="bub bot">${r}</div>`;body.scrollTop=body.scrollHeight;},700);}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800);}
 
-document.getElementById('lang-btn').textContent = LANGS_CYCLE[li];
+document.getElementById('lang-btn').textContent=LANGS_CYCLE[li];
 applyTranslations();
 </script>
 </body>
