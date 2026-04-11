@@ -7,27 +7,27 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { prompt, userEmail, imgB64, imgType } = req.body || {};
+    const { prompt, imgB64, imgType } = req.body || {};
 
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
     const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' });
+    const hordeKey = process.env.AI_HORDE_API_KEY;
 
-    // ── Build messages ──
-    const messages = [];
-
-    if (imgB64 && imgB64.length > 0) {
-      messages.push({
+    // ─────────────────────────────
+    // 1) OPENROUTER (TEXT / HTML)
+    // ─────────────────────────────
+    const messages = [
+      {
         role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
-          { type: 'text', text: prompt }
-        ]
-      });
-    } else {
-      messages.push({ role: 'user', content: prompt });
-    }
+        content: imgB64
+          ? [
+              { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
+              { type: 'text', text: prompt }
+            ]
+          : prompt
+      }
+    ];
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -39,34 +39,67 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'openrouter/auto',
-        max_tokens: 8192,
+        max_tokens: 4096,
         messages
       }),
     });
 
-    console.log('OpenRouter status:', response.status);
+    let html = '';
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenRouter error:', errText);
-      return res.status(502).json({ error: `OpenRouter error: ${response.status}`, details: errText });
+    if (response.ok) {
+      const data = await response.json();
+      html = data.choices?.[0]?.message?.content || '';
     }
 
-    const data = await response.json();
-    const rawText = data.choices?.[0]?.message?.content || '';
+    // ─────────────────────────────
+    // 2) FALLBACK → AI HORDE
+    // ─────────────────────────────
+    if (!html || html.length < 1) {
+      if (!hordeKey) {
+        return res.status(500).json({ error: 'No AI response and AI_HORDE_API_KEY missing' });
+      }
 
-    if (!rawText) {
-      return res.status(502).json({ error: 'Empty response from AI' });
+      const hordeRes = await fetch('https://stablehorde.net/api/v2/generate/async', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': hordeKey,
+          'Client-Agent': 'vercel-app:1.0'
+        },
+        body: JSON.stringify({
+          prompt,
+          params: {
+            n: 1,
+            width: 768,
+            height: 768,
+            steps: 20
+          }
+        })
+      });
+
+      const hordeData = await hordeRes.json();
+
+      return res.status(200).json({
+        source: 'ai_horde',
+        job_id: hordeData.id || null,
+        message: 'Image generation started (AI Horde)',
+        data: hordeData
+      });
     }
 
-    let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
+    // ─────────────────────────────
+    // 3) CLEAN HTML OUTPUT
+    // ─────────────────────────────
+    html = html.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
-    // ✅ استبدال placeholder بالصورة الحقيقية
-    if (imgB64 && imgB64.length > 0) {
+    if (imgB64) {
       html = html.replace('PRODUCT_IMAGE_BASE64', imgB64);
     }
 
-    return res.status(200).json({ html });
+    return res.status(200).json({
+      source: 'openrouter',
+      html
+    });
 
   } catch (err) {
     console.error('ERROR:', err.message);
