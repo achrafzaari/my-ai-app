@@ -122,9 +122,9 @@ module.exports = async function handler(req, res) {
 
     // أضف معلومات الصور للـ prompt
     const imagesNote = generatedImages.length > 0
-      ? `\n\nمهم: سيتم حقن ${generatedImages.length} صور احترافية للمنتج تلقائياً في قسم "صور المنتج" بعد Hero. لا تضع أي img tag في الكود — فقط ضع div بـ id="product-gallery" فارغ بعد Hero لاستقبال الصور.`
+      ? `\n\nمهم جداً: لا تضع أي img tag في الكود — الصور ستُحقن تلقائياً في الصفحة. فقط اصنع تصميم HTML/CSS جميل بدون صور.`
       : hasImg
-      ? `\n\nمهم: ضع PRODUCT_IMAGE_BASE64 في الـ src لصورة المنتج في Hero هكذا:\n<img src="PRODUCT_IMAGE_BASE64" alt="صورة المنتج" style="max-width:100%;border-radius:16px;">`
+      ? `\n\nمهم: لا تضع أي img tag — الصورة ستُضاف تلقائياً بعد العنوان الرئيسي.`
       : '';
 
     const finalPrompt = prompt + imagesNote;
@@ -181,49 +181,52 @@ module.exports = async function handler(req, res) {
       const makeImg = (img, style='') =>
         `<img src="data:${img.type};base64,${img.b64}" alt="صورة المنتج" style="max-width:100%;width:100%;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:block;margin:16px auto;${style}">`;
 
-      if (html.includes('PRODUCT_IMAGE_BASE64')) {
-        // استبدل placeholder بالصورة الأولى
-        html = html.replace('PRODUCT_IMAGE_BASE64', `data:${generatedImages[0].type};base64,${generatedImages[0].b64}`);
-      }
+      // ✅ صورة 1: احقن مباشرة بعد أول h1 في Hero
+      html = html.replace(
+        /(<\/h1>)/i,
+        `$1\n<div style="max-width:420px;margin:20px auto;">${makeImg(generatedImages[0])}</div>`
+      );
 
-      // أضف الصور في أماكن مختلفة من الصفحة
+      // ✅ صورة 2: بعد أول </section>
       if (generatedImages[1]) {
-        // صورة 2 بعد قسم المميزات
         html = html.replace(
           /(<\/section>)/,
           `$1\n<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[1])}</div>`
         );
       }
 
+      // ✅ صورة 3: قبل آخر </section>
       if (generatedImages[2]) {
-        // صورة 3 قبل قسم السعر أو الشهادات
-        const insertPoint = html.lastIndexOf('</section>');
-        if (insertPoint > 0) {
-          html = html.slice(0, insertPoint) +
+        const lastSection = html.lastIndexOf('</section>');
+        if (lastSection > 0) {
+          html = html.slice(0, lastSection) +
             `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[2])}</div>` +
-            html.slice(insertPoint);
+            html.slice(lastSection);
         }
       }
 
+      // ✅ صورة 4: قبل footer أو نهاية body
       if (generatedImages[3]) {
-        // صورة 4 قبل الفورم أو التذييل
-        html = html.replace(
-          /(<footer)/i,
-          `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[3])}</div>\n$1`
-        );
+        if (html.includes('<footer')) {
+          html = html.replace(
+            /(<footer)/i,
+            `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[3])}</div>\n$1`
+          );
+        } else {
+          html = html.replace(
+            '</body>',
+            `<div style="max-width:500px;margin:30px auto;padding:0 20px;">${makeImg(generatedImages[3])}</div>\n</body>`
+          );
+        }
       }
 
     } else if (hasImg) {
-      // fallback: صورة أصلية واحدة
+      // fallback: صورة أصلية واحدة بعد h1
       const imgDataUrl = `data:${imgType};base64,${imgB64}`;
-      if (html.includes('PRODUCT_IMAGE_BASE64')) {
-        html = html.replace(/src="[^"]*PRODUCT_IMAGE_BASE64[^"]*"/g, `src="${imgDataUrl}"`);
-      } else {
-        html = html.replace(
-          /(<\/h[12][^>]*>)/i,
-          `$1\n<img src="${imgDataUrl}" alt="صورة المنتج" style="max-width:100%;width:420px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:20px auto;">`
-        );
-      }
+      html = html.replace(
+        /(<\/h1>)/i,
+        `$1\n<div style="max-width:420px;margin:20px auto;"><img src="${imgDataUrl}" alt="صورة المنتج" style="max-width:100%;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);display:block;margin:auto;"></div>`
+      );
     }
 
     if (!html.includes('</html>')) {
