@@ -1,4 +1,4 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // ── CORS ──
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -18,7 +18,6 @@ export default async function handler(req, res) {
     // ── Build parts ──
     const parts = [];
 
-    // إذا كانت الصورة موجودة أضفها أولاً
     if (imgB64 && imgB64.length > 0) {
       parts.push({
         inlineData: {
@@ -28,11 +27,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // أضف الـ prompt النصي
     parts.push({ text: prompt });
 
     // ── Call Gemini API ──
-    // Try gemini-2.0-flash-001 (stable), fallback name if needed
     const model = 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -51,7 +48,6 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Gemini API error:', response.status, errText);
-      // Return full details so you can see exactly what Google says
       return res.status(502).json({
         error: `Gemini API error: ${response.status}`,
         model,
@@ -61,7 +57,6 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // ── Extract text from Gemini response ──
     const rawText = data.candidates?.[0]?.content?.parts
       ?.map((p) => p.text || '')
       .join('') || '';
@@ -71,7 +66,6 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'Empty response from Gemini' });
     }
 
-    // نظف markdown fences إن وجدت
     const html = rawText
       .replace(/```html\s*/gi, '')
       .replace(/```\s*/g, '')
@@ -83,4 +77,4 @@ export default async function handler(req, res) {
     console.error('generate.js error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });
   }
-}
+};
