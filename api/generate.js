@@ -10,54 +10,43 @@ module.exports = async function handler(req, res) {
     const { prompt, userEmail, imgB64, imgType } = req.body || {};
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
     const hfKey = process.env.HF_API_KEY;
-    if (!openrouterKey) return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' });
+
+    if (!geminiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
 
     const hasImg = imgB64 && imgB64.length > 0;
-
-    // ══════════════════════════════════════════
-    // STEP 1: فهم المنتج (سريع)
-    // ══════════════════════════════════════════
     let productDesc = 'professional product';
+    let generatedImages = [];
 
-    if (hasImg && hfKey) {
+    // ══════════════════════════════════════════
+    // STEP 1: فهم المنتج + توليد الصور بالتوازي
+    // ══════════════════════════════════════════
+    const getProductDesc = async () => {
+      if (!hasImg || !hfKey) return productDesc;
       try {
-        const descRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openrouterKey}`,
-            'HTTP-Referer': 'https://my-ai-app-five-nu.vercel.app',
-            'X-Title': 'ForYouPage'
-          },
-          body: JSON.stringify({
-            model: 'openrouter/auto',
-            max_tokens: 80,
-            messages: [{
-              role: 'user',
-              content: [
-                { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
-                { type: 'text', text: 'Describe this product precisely in English: brand, type, color, shape, packaging. One sentence only.' }
-              ]
-            }]
-          })
-        });
-        if (descRes.ok) {
-          const d = await descRes.json();
-          productDesc = d.choices?.[0]?.message?.content?.trim() || productDesc;
-          console.log('Product:', productDesc);
-        }
-      } catch(e) { console.error('Desc error:', e.message); }
-    }
+        const parts = [
+          { inlineData: { mimeType: imgType || 'image/jpeg', data: imgB64 } },
+          { text: 'Describe this product precisely in English: brand, type, color, shape, packaging. One sentence only.' }
+        ];
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 80 } })
+          }
+        );
+        if (!r.ok) return productDesc;
+        const d = await r.json();
+        return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || productDesc;
+      } catch(e) { return productDesc; }
+    };
 
-    // ══════════════════════════════════════════
-    // STEP 2: توليد الصور و HTML بالتوازي
-    // ══════════════════════════════════════════
     const generateImage = async (imgPrompt, index) => {
       if (!hfKey) return null;
       try {
-        const hfRes = await fetch(
+        const r = await fetch(
           'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
           {
             method: 'POST',
@@ -68,65 +57,69 @@ module.exports = async function handler(req, res) {
             })
           }
         );
-        console.log(`Image ${index} HF status:`, hfRes.status);
-        if (!hfRes.ok) return null;
-        const buf = await hfRes.arrayBuffer();
+        console.log(`Image ${index} HF status:`, r.status);
+        if (!r.ok) return null;
+        const buf = await r.arrayBuffer();
         return { index, b64: Buffer.from(buf).toString('base64'), type: 'image/jpeg' };
       } catch(e) { console.error(`Image ${index} error:`, e.message); return null; }
     };
 
-    const generateHTML = async () => {
-      const imagesNote = hasImg
-        ? '\n\nمهم: لا تضع أي img tag في الكود — الصور ستُحقن تلقائياً.'
-        : '';
-      const messages = hasImg ? [{
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: `data:${imgType || 'image/jpeg'};base64,${imgB64}` } },
-          { type: 'text', text: prompt + imagesNote }
-        ]
-      }] : [{ role: 'user', content: prompt + imagesNote }];
+    // فهم المنتج أولاً
+    productDesc = await getProductDesc();
+    console.log('Product:', productDesc);
 
-      const res2 = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openrouterKey}`,
-          'HTTP-Referer': 'https://my-ai-app-five-nu.vercel.app',
-          'X-Title': 'ForYouPage'
-        },
-        body: JSON.stringify({ model: 'openrouter/auto', max_tokens: 12000, messages })
-      });
-      console.log('OpenRouter status:', res2.status);
-      if (!res2.ok) throw new Error(`OpenRouter ${res2.status}`);
-      const d = await res2.json();
-      return d.choices?.[0]?.message?.content || '';
+    // ══════════════════════════════════════════
+    // STEP 2: توليد الصور و HTML بالتوازي
+    // ══════════════════════════════════════════
+    const htmlPromise = async () => {
+      const note = hasImg ? '\n\nمهم: لا تضع أي img tag — الصور ستُحقن تلقائياً.' : '';
+      const parts = [];
+      if (hasImg) {
+        parts.push({ inlineData: { mimeType: imgType || 'image/jpeg', data: imgB64 } });
+      }
+      parts.push({ text: prompt + note });
+
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { temperature: 0.9, maxOutputTokens: 8192 }
+          })
+        }
+      );
+      console.log('Gemini status:', r.status);
+      if (!r.ok) {
+        const err = await r.text();
+        throw new Error(`Gemini ${r.status}: ${err}`);
+      }
+      const d = await r.json();
+      return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     };
 
-    // تشغيل الصور و HTML بالتوازي
     const [rawText, img1, img2] = await Promise.all([
-      generateHTML(),
+      htmlPromise(),
       hasImg && hfKey ? generateImage(`professional product photography of ${productDesc}, white background, studio lighting, sharp focus, 4k`, 1) : Promise.resolve(null),
-      hasImg && hfKey ? generateImage(`${productDesc}, lifestyle shot, elegant setting, natural lighting, beautiful`, 2) : Promise.resolve(null),
+      hasImg && hfKey ? generateImage(`${productDesc}, lifestyle shot, elegant setting, natural lighting`, 2) : Promise.resolve(null),
     ]);
 
-    if (!rawText) return res.status(502).json({ error: 'Empty response from AI' });
+    if (!rawText) return res.status(502).json({ error: 'Empty response from Gemini' });
 
     let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
-    const generatedImages = [img1, img2].filter(Boolean);
+    generatedImages = [img1, img2].filter(Boolean);
     console.log(`Generated ${generatedImages.length} images`);
 
     // ══════════════════════════════════════════
-    // STEP 3: حقن الصور في الصفحة
+    // STEP 3: حقن الصور
     // ══════════════════════════════════════════
     const makeImg = (img) =>
       `<div style="max-width:460px;margin:24px auto;padding:0 16px;"><img src="data:${img.type};base64,${img.b64}" alt="صورة المنتج" style="width:100%;height:auto;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);display:block;"></div>`;
 
     if (generatedImages.length > 0) {
-      // صورة 1 بعد h1
       html = html.replace(/(<\/h1>)/i, `$1\n${makeImg(generatedImages[0])}`);
-      // صورة 2 قبل footer أو نهاية body
       if (generatedImages[1]) {
         if (html.includes('<footer')) {
           html = html.replace(/(<footer)/i, `${makeImg(generatedImages[1])}\n$1`);
