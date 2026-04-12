@@ -47,12 +47,12 @@ module.exports = async function handler(req, res) {
       const fullPrompt = prompt + note;
 
       const r = await fetch(
-        'https://router.huggingface.co/hf-inference/v1/chat/completions',
+        'https://router.huggingface.co/v1/chat/completions',
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'meta-llama/Llama-3.1-8B-Instruct',
+            model: 'meta-llama/Llama-3.1-8B-Instruct:cerebras',
             messages: [{ role: 'user', content: fullPrompt }],
             max_tokens: 8192,
             stream: false
