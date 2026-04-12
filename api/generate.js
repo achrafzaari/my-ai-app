@@ -47,12 +47,12 @@ module.exports = async function handler(req, res) {
       const fullPrompt = prompt + note;
 
       const r = await fetch(
-        'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions',
+        'https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3/v1/chat/completions',
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'Qwen/Qwen2.5-72B-Instruct',
+            model: 'mistralai/Mistral-7B-Instruct-v0.3',
             messages: [{ role: 'user', content: fullPrompt }],
             max_tokens: 8192,
             stream: false
