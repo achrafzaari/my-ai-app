@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'deepseek-ai/DeepSeek-V3-0324',
+            model: 'mistralai/Mistral-7B-Instruct-v0.3',
             messages: [{ role: 'user', content: fullPrompt }],
             max_tokens: 8192,
             stream: false
