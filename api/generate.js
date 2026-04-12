@@ -10,41 +10,65 @@ module.exports = async function handler(req, res) {
     const { prompt, userEmail, imgB64, imgType } = req.body || {};
     if (!prompt) return res.status(400).json({ error: 'prompt is required' });
 
-    const geminiKey = process.env.GEMINI_API_KEY;
     const hfKey = process.env.HF_API_KEY;
-
-    if (!geminiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+    if (!hfKey) return res.status(500).json({ error: 'HF_API_KEY not configured' });
 
     const hasImg = imgB64 && imgB64.length > 0;
     let productDesc = 'professional product';
     let generatedImages = [];
 
     // ══════════════════════════════════════════
-    // STEP 1: فهم المنتج + توليد الصور بالتوازي
+    // STEP 1: فهم المنتج من الصورة
     // ══════════════════════════════════════════
-    const getProductDesc = async () => {
-      if (!hasImg || !hfKey) return productDesc;
+    if (hasImg) {
       try {
-        const parts = [
-          { inlineData: { mimeType: imgType || 'image/jpeg', data: imgB64 } },
-          { text: 'Describe this product precisely in English: brand, type, color, shape, packaging. One sentence only.' }
-        ];
         const r = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+          'https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-large',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 80 } })
+            headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inputs: { image: imgB64 } })
           }
         );
-        if (!r.ok) return productDesc;
-        const d = await r.json();
-        return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || productDesc;
-      } catch(e) { return productDesc; }
+        console.log('Caption status:', r.status);
+        if (r.ok) {
+          const d = await r.json();
+          productDesc = d?.[0]?.generated_text || productDesc;
+          console.log('Product:', productDesc);
+        }
+      } catch(e) { console.error('Caption error:', e.message); }
+    }
+
+    // ══════════════════════════════════════════
+    // STEP 2: توليد HTML + صورتين بالتوازي
+    // ══════════════════════════════════════════
+    const generateHTML = async () => {
+      const note = hasImg ? '\n\nمهم: لا تضع أي img tag — الصور ستُحقن تلقائياً.' : '';
+      const fullPrompt = prompt + note;
+
+      const r = await fetch(
+        'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-72B-Instruct',
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'Qwen/Qwen2.5-72B-Instruct',
+            messages: [{ role: 'user', content: fullPrompt }],
+            max_tokens: 8192,
+            stream: false
+          })
+        }
+      );
+      console.log('HF text status:', r.status);
+      if (!r.ok) {
+        const err = await r.text();
+        throw new Error(`HF text ${r.status}: ${err}`);
+      }
+      const d = await r.json();
+      return d.choices?.[0]?.message?.content || '';
     };
 
     const generateImage = async (imgPrompt, index) => {
-      if (!hfKey) return null;
       try {
         const r = await fetch(
           'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
@@ -64,48 +88,13 @@ module.exports = async function handler(req, res) {
       } catch(e) { console.error(`Image ${index} error:`, e.message); return null; }
     };
 
-    // فهم المنتج أولاً
-    productDesc = await getProductDesc();
-    console.log('Product:', productDesc);
-
-    // ══════════════════════════════════════════
-    // STEP 2: توليد الصور و HTML بالتوازي
-    // ══════════════════════════════════════════
-    const htmlPromise = async () => {
-      const note = hasImg ? '\n\nمهم: لا تضع أي img tag — الصور ستُحقن تلقائياً.' : '';
-      const parts = [];
-      if (hasImg) {
-        parts.push({ inlineData: { mimeType: imgType || 'image/jpeg', data: imgB64 } });
-      }
-      parts.push({ text: prompt + note });
-
-      const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { temperature: 0.9, maxOutputTokens: 8192 }
-          })
-        }
-      );
-      console.log('Gemini status:', r.status);
-      if (!r.ok) {
-        const err = await r.text();
-        throw new Error(`Gemini ${r.status}: ${err}`);
-      }
-      const d = await r.json();
-      return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    };
-
     const [rawText, img1, img2] = await Promise.all([
-      htmlPromise(),
-      hasImg && hfKey ? generateImage(`professional product photography of ${productDesc}, white background, studio lighting, sharp focus, 4k`, 1) : Promise.resolve(null),
-      hasImg && hfKey ? generateImage(`${productDesc}, lifestyle shot, elegant setting, natural lighting`, 2) : Promise.resolve(null),
+      generateHTML(),
+      hasImg ? generateImage(`professional product photography of ${productDesc}, white background, studio lighting, sharp focus, 4k`, 1) : Promise.resolve(null),
+      hasImg ? generateImage(`${productDesc}, lifestyle shot, elegant setting, natural lighting`, 2) : Promise.resolve(null),
     ]);
 
-    if (!rawText) return res.status(502).json({ error: 'Empty response from Gemini' });
+    if (!rawText) return res.status(502).json({ error: 'Empty response from HF' });
 
     let html = rawText.replace(/```html\s*/gi, '').replace(/```\s*/g, '').trim();
 
