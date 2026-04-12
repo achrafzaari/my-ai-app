@@ -47,7 +47,7 @@ module.exports = async function handler(req, res) {
       const fullPrompt = prompt + note;
 
       const r = await fetch(
-        'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-72B-Instruct',
+        'https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions',
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
