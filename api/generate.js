@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'deepseek-ai/DeepSeek-V3:novita',
+            model: 'meta-llama/Llama-3.3-70B-Instruct:cerebras',
             messages: [{ role: 'user', content: fullPrompt }],
             max_tokens: 8192,
             stream: false
