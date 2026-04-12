@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${hfKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'meta-llama/Llama-3.1-8B-Instruct:cerebras',
+            model: 'Qwen/Qwen3-32B:cerebras',
             messages: [{ role: 'user', content: fullPrompt }],
             max_tokens: 8192,
             stream: false
